@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Heroic Guardians — Tu Personaje en Partida</title>
+<style>
+  :root {
+    --bg: #0b0c10;
+    --panel: #15171e;
+    --panel-2: #1c1f28;
+    --ink: #f4ede1;
+    --ink-dim: #93919b;
+    --accent: #e8823a;
+    --accent-dim: #b8631f;
+    --line: #2a2d38;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; min-height: 100vh;
+    background: radial-gradient(ellipse 1100px 700px at 50% 0%, #201526 0%, var(--bg) 55%);
+    color: var(--ink);
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+
+  .screen { display: none; min-height: 100vh; }
+  .screen.active { display: flex; }
+
+  /* ===== PANTALLA: CREACIÓN ===== */
+  #creator { flex-direction: column; align-items: center; padding: 28px 16px 40px; }
+  .title-block { text-align: center; margin-bottom: 18px; }
+  .title-block h1 {
+    margin: 0; font-size: clamp(22px, 4vw, 30px);
+    letter-spacing: 3px; text-transform: uppercase;
+    font-family: "Arial Black", "Franklin Gothic Bold", Haettenschweiler, sans-serif;
+    color: var(--ink); text-shadow: 0 0 24px rgba(232,130,58,0.35);
+  }
+  .title-block p { margin: 6px 0 0; font-size: 13px; color: var(--ink-dim); }
+
+  .creator-layout {
+    display: flex; gap: 26px; flex-wrap: wrap;
+    justify-content: center; align-items: flex-start;
+    width: 100%; max-width: 900px;
+  }
+  .preview-card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 16px;
+    padding: 18px; display: flex; flex-direction: column; align-items: center; gap: 10px;
+    width: 250px;
+  }
+  .preview-card canvas {
+    background: radial-gradient(ellipse at 50% 85%, rgba(232,130,58,0.12), transparent 70%);
+    border-radius: 12px;
+  }
+  #nameInput {
+    width: 100%; text-align: center;
+    background: var(--panel-2); border: 1px solid var(--line);
+    color: var(--ink); font-size: 14px; padding: 8px 10px; border-radius: 8px; letter-spacing: 0.5px;
+  }
+  #nameInput:focus { outline: 1px solid var(--accent); }
+
+  .traits-card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 16px;
+    padding: 20px 22px; flex: 1 1 380px; max-width: 480px;
+  }
+  .trait-group { margin-bottom: 16px; }
+  .trait-group:last-child { margin-bottom: 0; }
+  .trait-label { font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--ink-dim); margin-bottom: 8px; }
+  .swatch-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .swatch { width: 32px; height: 32px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; transition: transform 0.12s ease, border-color 0.12s ease; }
+  .swatch:hover { transform: scale(1.1); }
+  .swatch.selected { border-color: var(--ink); box-shadow: 0 0 0 2px var(--accent); }
+  .option-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .option-btn {
+    background: var(--panel-2); border: 1px solid var(--line); color: var(--ink-dim);
+    font-size: 12.5px; padding: 8px 13px; border-radius: 8px; cursor: pointer; letter-spacing: 0.3px;
+    transition: all 0.12s ease;
+  }
+  .option-btn:hover { color: var(--ink); border-color: var(--accent-dim); }
+  .option-btn.selected { background: var(--accent); color: #1a1006; border-color: var(--accent); font-weight: 700; }
+
+  .confirm-btn {
+    display: block; width: 100%; max-width: 900px; margin-top: 22px;
+    background: linear-gradient(180deg, var(--accent), var(--accent-dim));
+    color: #1a1006; font-weight: 800; letter-spacing: 1px; text-transform: uppercase;
+    font-size: 14px; padding: 14px; border: none; border-radius: 12px;
+    cursor: pointer; box-shadow: 0 6px 20px -6px rgba(232,130,58,0.6);
+    transition: transform 0.1s ease;
+  }
+  .confirm-btn:hover { transform: translateY(-1px); }
+  .confirm-btn:active { transform: translateY(1px); }
+  .quality-note { margin-top: 12px; font-size: 11.5px; color: var(--ink-dim); text-align: center; max-width: 480px; line-height: 1.5; }
+
+  /* ===== PANTALLA: BIENVENIDA DE VUELTA ===== */
+  #welcomeBack { flex-direction: column; align-items: center; justify-content: center; width: 100%; text-align: center; padding: 20px; }
+  #welcomeBack h2 { font-size: 22px; letter-spacing: 1px; margin-bottom: 4px; }
+  #welcomeBack .sub { color: var(--ink-dim); font-size: 13px; margin-bottom: 22px; }
+  #playBtn {
+    margin-top: 20px; background: linear-gradient(180deg, var(--accent), var(--accent-dim));
+    color: #1a1006; font-weight: 800; letter-spacing: 1px; text-transform: uppercase;
+    font-size: 15px; padding: 14px 40px; border: none; border-radius: 12px;
+    cursor: pointer; box-shadow: 0 6px 20px -6px rgba(232,130,58,0.6);
+  }
+  #resetLink { margin-top: 18px; font-size: 11.5px; color: var(--ink-dim); text-decoration: underline; cursor: pointer; background: none; border: none; }
+
+  /* ===== PANTALLA: FUSIÓN PRE-PARTIDA ===== */
+  #fusionScreen { flex-direction: column; align-items: center; justify-content: center; width: 100%; padding: 20px; text-align: center; }
+  #fusionScreen h2 { font-size: 20px; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 4px; }
+  #fusionScreen .sub { color: var(--ink-dim); font-size: 12.5px; margin-bottom: 20px; }
+  .fusion-badges { display: flex; gap: 18px; margin-bottom: 22px; }
+  .fusion-badge {
+    width: 78px; height: 78px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10.5px; font-weight: 700; text-align: center; padding: 6px;
+    background: var(--panel-2); border: 2px solid var(--accent);
+    box-shadow: 0 0 16px -2px var(--accent);
+    animation: fusionPulse 1.6s ease-in-out infinite;
+  }
+  .fusion-badge:nth-child(2) { animation-delay: 0.2s; }
+  .fusion-badge:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes fusionPulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+  .fusion-result {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 16px;
+    padding: 20px 26px; max-width: 380px; width: 100%;
+  }
+  .fusion-rarity {
+    display: inline-block; font-size: 11px; font-weight: 800; letter-spacing: 1.5px;
+    text-transform: uppercase; padding: 5px 14px; border-radius: 999px; margin-bottom: 14px;
+  }
+  .fusion-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 18px; text-align: left; margin-bottom: 8px; }
+  .fusion-stat-label { font-size: 10.5px; letter-spacing: 1px; text-transform: uppercase; color: var(--ink-dim); }
+  .fusion-stat-value { font-size: 15px; font-weight: 700; }
+  #enterArenaBtn {
+    margin-top: 18px; width: 100%;
+    background: linear-gradient(180deg, var(--accent), var(--accent-dim));
+    color: #1a1006; font-weight: 800; letter-spacing: 1px; text-transform: uppercase;
+    font-size: 14px; padding: 13px; border: none; border-radius: 12px; cursor: pointer;
+  }
+
+  /* ===== PANTALLA: JUEGO ===== */
+  #gameScreen { flex-direction: column; align-items: center; width: 100%; padding-top: 14px; }
+  #gameTitle {
+    text-align: center; color: var(--accent); text-shadow: 2px 2px 3px #000;
+    margin: 0 0 2px; font-size: 24px; letter-spacing: 1px;
+  }
+  #gameSubtitle {
+    text-align: center; color: var(--ink-dim); font-size: 12px;
+    letter-spacing: 0.5px; margin: 0 0 10px;
+  }
+  #gameContainer {
+    position: relative; width: 900px; max-width: 94vw; aspect-ratio: 3 / 2;
+    margin: 0 auto 16px; border: 4px solid #4a3826; border-radius: 12px;
+    overflow: hidden; box-shadow: 0 0 30px rgba(0,0,0,0.6);
+  }
+  #game { display: block; width: 100%; height: 100%; background: #3c5a34; cursor: crosshair; }
+  #damageFlash { position: absolute; inset: 0; background: #ff0000; opacity: 0; pointer-events: none; z-index: 5; }
+  #hud { position: absolute; top: 10px; left: 10px; display: flex; flex-direction: column; gap: 6px; pointer-events: none; text-shadow: 1px 1px 2px #000; }
+  .barBg { width: 200px; height: 16px; background: rgba(0,0,0,0.5); border: 2px solid #222; border-radius: 8px; overflow: hidden; }
+  .barFill { height: 100%; transition: width 0.15s; }
+  #hpFill { background: linear-gradient(90deg,#4caf50,#8bc34a); width:100%; }
+  #superFill { background: linear-gradient(90deg,#ffd54f,#ff9800); width:0%; }
+  #superText { font-weight: bold; font-size: 14px; color: #ffd54f; height: 18px; }
+  #scoreBoard { position: absolute; top: 10px; right: 14px; text-align: right; text-shadow: 1px 1px 2px #000; font-size: 15px; }
+  #centerMsg { position: absolute; top: 45%; left: 50%; transform: translate(-50%, -50%); font-size: 40px; font-weight: bold; text-shadow: 2px 2px 4px #000; color: #ffeb3b; pointer-events: none; display: none; }
+  #instructions { position: absolute; bottom: 10px; left: 10px; font-size: 12px; background: rgba(0,0,0,0.45); padding: 8px 12px; border-radius: 8px; line-height: 1.5; max-width: 260px; }
+  #touchSuperBtn {
+    position: absolute; bottom: 16px; right: 16px; z-index: 20;
+    background: linear-gradient(180deg, #6b6b6b, #4a4a4a);
+    color: rgba(255,255,255,0.6); font-weight: 800; letter-spacing: 0.5px;
+    border: none; border-radius: 999px; padding: 16px 20px;
+    font-size: 13px; box-shadow: none;
+    cursor: pointer; touch-action: manipulation; opacity: 0.75;
+    transition: all 0.2s ease;
+  }
+  #touchSuperBtn.ready {
+    background: linear-gradient(180deg, #ffd54f, #ff9800);
+    color: #1a1006; opacity: 1;
+    box-shadow: 0 4px 18px -2px rgba(255,152,0,0.85);
+    animation: superPulse 0.9s ease-in-out infinite;
+  }
+  @keyframes superPulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+  #touchSuperBtn:active { transform: scale(0.94); }
+</style>
+</head>
+<body>
+
+<!-- ================= PANTALLA 1: CREACIÓN (solo primera vez) ================= -->
+<div class="screen" id="creator">
+  <div class="title-block">
+    <h1>Crea tu personaje</h1>
+    <p>Esto solo se pregunta una vez — se guarda automáticamente</p>
+  </div>
+  <div class="creator-layout">
+    <div class="preview-card">
+      <canvas id="previewCanvas" width="200" height="260"></canvas>
+      <input id="nameInput" type="text" maxlength="16" placeholder="Nombre del personaje" value="Rook">
+    </div>
+    <div class="traits-card">
+      <div class="trait-group"><div class="trait-label">Tono de piel</div><div class="swatch-row" id="skinRow"></div></div>
+      <div class="trait-group"><div class="trait-label">Color de pelo</div><div class="swatch-row" id="hairColorRow"></div></div>
+      <div class="trait-group"><div class="trait-label">Peinado</div><div class="option-row" id="hairStyleRow"></div></div>
+      <div class="trait-group"><div class="trait-label">Color de ropa</div><div class="swatch-row" id="outfitRow"></div></div>
+      <div class="trait-group"><div class="trait-label">Estilo de combate</div><div class="option-row" id="weaponRow"></div></div>
+    </div>
+  </div>
+  <button class="confirm-btn" id="confirmBtn">Confirmar y guardar personaje</button>
+  <p class="quality-note">
+    Calidad actual: representación vectorial procedural. Estos mismos rasgos alimentarán, más adelante, un retrato estilo anime generado con IA.
+  </p>
+</div>
+
+<!-- ================= PANTALLA 2: BIENVENIDA DE VUELTA ================= -->
+<div class="screen" id="welcomeBack">
+  <canvas id="returnCanvas" width="220" height="280"></canvas>
+  <h2 id="welcomeName">Bienvenido de vuelta</h2>
+  <p class="sub">Tu personaje ya está guardado — listo para entrar a la arena</p>
+  <button id="playBtn">Jugar</button>
+  <button id="resetLink">Restablecer personaje (debug)</button>
+</div>
+
+<!-- ================= PANTALLA 2.5: FUSIÓN PRE-PARTIDA ================= -->
+<div class="screen" id="fusionScreen">
+  <h2>Generando tu Fusión</h2>
+  <p class="sub">3 personajes del roster, combinados al azar</p>
+  <div class="fusion-badges" id="fusionBadges"></div>
+  <div class="fusion-result">
+    <div class="fusion-rarity" id="fusionRarity"></div>
+    <div class="fusion-stats" id="fusionStats"></div>
+  </div>
+  <button id="enterArenaBtn">Entrar a la arena</button>
+</div>
+
+<!-- ================= PANTALLA 3: PARTIDA ================= -->
+<div class="screen" id="gameScreen">
+  <h1 id="gameTitle">🪓 TIMBER BRAWL</h1>
+  <p id="gameSubtitle">Fusión: —</p>
+  <div id="gameContainer">
+    <canvas id="game" width="900" height="600"></canvas>
+    <div id="damageFlash"></div>
+    <div id="hud">
+      <div>Vida</div>
+      <div class="barBg"><div id="hpFill" class="barFill"></div></div>
+      <div id="superText">Super: 0/5 golpes</div>
+      <div class="barBg"><div id="superFill" class="barFill"></div></div>
+    </div>
+    <div id="scoreBoard">Rivales derrotados: <span id="kills">0</span></div>
+    <div id="centerMsg"></div>
+    <div id="instructions">
+      <b>Teclado/ratón:</b> WASD mover · Ratón apuntar · Clic atacar · Espacio super<br>
+      <b>Táctil:</b> joystick izq. mover · joystick der. apuntar/disparar · botón ⚡ super
+    </div>
+    <button id="touchSuperBtn">⚡ SUPER</button>
+  </div>
+</div>
+
+<script>
+// =====================================================================
+// PARTE A — CREACIÓN DE PERSONAJE (rasgos + guardado)
+// =====================================================================
+const SKIN_TONES = ['#ffdcb0', '#f0b98a', '#c98a5e', '#8a5a3c', '#5c3823'];
+const HAIR_COLORS = ['#2b1a10', '#5c3a1e', '#8a4a2a', '#c9a13a', '#787878', '#b23a3a'];
+const HAIR_STYLES = [{ id: 'corto', label: 'Corto' }, { id: 'largo', label: 'Largo' }, { id: 'calvo', label: 'Rapado' }];
+const OUTFIT_COLORS = ['#8b3a2f', '#3a5f8b', '#3a7d4a', '#6a3a8b', '#8b7a3a', '#4a4a52'];
+const WEAPONS = [{ id: 'hacha', label: '🪓 Hacha' }, { id: 'guantes', label: '👊 Guantes' }, { id: 'baston', label: '🔮 Bastón' }];
+const STORAGE_KEY = 'timberBrawlCharacter';
+
+let traits = { name: 'Rook', skin: SKIN_TONES[1], hairColor: HAIR_COLORS[0], hairStyle: 'corto', outfit: OUTFIT_COLORS[0], weapon: 'hacha' };
+
+function buildSwatches(containerId, colors, key) {
+  const el = document.getElementById(containerId);
+  colors.forEach(color => {
+    const sw = document.createElement('div');
+    sw.className = 'swatch'; sw.style.background = color;
+    sw.addEventListener('click', () => {
+      traits[key] = color;
+      [...el.children].forEach(c => c.classList.remove('selected'));
+      sw.classList.add('selected');
+      drawCharacter(previewCtx, 100, 130, 1, traits, 0);
+    });
+    el.appendChild(sw);
+  });
+  el.children[0].classList.add('selected');
+}
+function buildOptions(containerId, options, key) {
+  const el = document.getElementById(containerId);
+  options.forEach(opt => {
+    const btn = document.createElement('div');
+    btn.className = 'option-btn'; btn.textContent = opt.label;
+    btn.addEventListener('click', () => {
+      traits[key] = opt.id;
+      [...el.children].forEach(c => c.classList.remove('selected'));
+      btn.classList.add('selected');
+      drawCharacter(previewCtx, 100, 130, 1, traits, 0);
+    });
+    el.appendChild(btn);
+  });
+  el.children[0].classList.add('selected');
+}
+buildSwatches('skinRow', SKIN_TONES, 'skin');
+buildSwatches('hairColorRow', HAIR_COLORS, 'hairColor');
+buildOptions('hairStyleRow', HAIR_STYLES, 'hairStyle');
+buildSwatches('outfitRow', OUTFIT_COLORS, 'outfit');
+buildOptions('weaponRow', WEAPONS, 'weapon');
+document.getElementById('nameInput').addEventListener('input', e => { traits.name = e.target.value || 'Rook'; });
+
+// Dibujo de personaje — vista frontal (pantallas de creación / bienvenida)
+function drawCharacter(ctx2, cx, baseY, scale, t, bob) {
+  ctx2.clearRect(0, 0, ctx2.canvas.width, ctx2.canvas.height);
+  ctx2.save(); ctx2.translate(cx, baseY + bob); ctx2.scale(scale, scale);
+  ctx2.fillStyle = 'rgba(0,0,0,0.35)';
+  ctx2.beginPath(); ctx2.ellipse(0, 108, 46, 10, 0, 0, Math.PI * 2); ctx2.fill();
+  ctx2.fillStyle = '#2c2016';
+  ctx2.beginPath(); ctx2.roundRect(-26, 40, 20, 60, 8); ctx2.fill();
+  ctx2.beginPath(); ctx2.roundRect(6, 40, 20, 60, 8); ctx2.fill();
+  ctx2.fillStyle = t.outfit;
+  ctx2.beginPath(); ctx2.roundRect(-34, -30, 68, 76, 14); ctx2.fill();
+  ctx2.fillStyle = 'rgba(0,0,0,0.3)'; ctx2.fillRect(-34, 30, 68, 8);
+  ctx2.fillStyle = t.outfit;
+  ctx2.beginPath(); ctx2.roundRect(-52, -20, 18, 56, 9); ctx2.fill();
+  ctx2.beginPath(); ctx2.roundRect(34, -20, 18, 56, 9); ctx2.fill();
+  ctx2.fillStyle = t.skin;
+  ctx2.beginPath(); ctx2.arc(-43, 38, 10, 0, Math.PI * 2); ctx2.fill();
+  ctx2.beginPath(); ctx2.arc(43, 38, 10, 0, Math.PI * 2); ctx2.fill();
+  ctx2.save(); ctx2.translate(43, 38);
+  if (t.weapon === 'hacha') {
+    ctx2.fillStyle = '#7a5230'; ctx2.fillRect(-3, -46, 6, 46);
+    ctx2.fillStyle = '#c9c9c9';
+    ctx2.beginPath(); ctx2.moveTo(3, -46); ctx2.lineTo(20, -38); ctx2.lineTo(20, -24); ctx2.lineTo(3, -30); ctx2.closePath(); ctx2.fill();
+  } else if (t.weapon === 'guantes') {
+    ctx2.fillStyle = t.hairColor;
+    ctx2.beginPath(); ctx2.arc(0, -6, 13, 0, Math.PI * 2); ctx2.fill();
+    ctx2.strokeStyle = 'rgba(255,255,255,0.5)'; ctx2.lineWidth = 2;
+    ctx2.beginPath(); ctx2.arc(0, -6, 13, 0, Math.PI * 2); ctx2.stroke();
+  } else if (t.weapon === 'baston') {
+    ctx2.fillStyle = '#5c4a3a'; ctx2.fillRect(-3, -60, 6, 60);
+    ctx2.fillStyle = '#8ad8f0'; ctx2.shadowColor = '#8ad8f0'; ctx2.shadowBlur = 10;
+    ctx2.beginPath(); ctx2.arc(0, -64, 9, 0, Math.PI * 2); ctx2.fill(); ctx2.shadowBlur = 0;
+  }
+  ctx2.restore();
+  ctx2.fillStyle = t.skin;
+  ctx2.beginPath(); ctx2.arc(0, -50, 24, 0, Math.PI * 2); ctx2.fill();
+  ctx2.fillStyle = '#2a2018';
+  ctx2.beginPath(); ctx2.arc(-8, -50, 2.4, 0, Math.PI * 2); ctx2.fill();
+  ctx2.beginPath(); ctx2.arc(8, -50, 2.4, 0, Math.PI * 2); ctx2.fill();
+  ctx2.fillStyle = t.hairColor;
+  if (t.hairStyle === 'corto') {
+    ctx2.beginPath(); ctx2.arc(0, -58, 25, Math.PI, Math.PI * 2); ctx2.fill();
+  } else if (t.hairStyle === 'largo') {
+    ctx2.beginPath(); ctx2.arc(0, -58, 25, Math.PI, Math.PI * 2); ctx2.fill();
+    ctx2.beginPath(); ctx2.roundRect(-26, -55, 12, 46, 6); ctx2.fill();
+    ctx2.beginPath(); ctx2.roundRect(14, -55, 12, 46, 6); ctx2.fill();
+  } else if (t.hairStyle === 'calvo') {
+    ctx2.beginPath(); ctx2.arc(0, -58, 25, Math.PI * 0.15, Math.PI * 0.85); ctx2.fill();
+  }
+  ctx2.restore();
+}
+
+const previewCtx = document.getElementById('previewCanvas').getContext('2d');
+const returnCtx = document.getElementById('returnCanvas').getContext('2d');
+let t0 = performance.now();
+function animatePreview(now) {
+  const bob = Math.sin((now - t0) / 500) * 3;
+  drawCharacter(previewCtx, 100, 130, 1, traits, bob);
+  requestAnimationFrame(animatePreview);
+}
+requestAnimationFrame(animatePreview);
+let t1 = performance.now();
+function animateReturn(now) {
+  const bob = Math.sin((now - t1) / 500) * 3;
+  const saved = loadSavedTraits();
+  if (saved) drawCharacter(returnCtx, 110, 150, 1.05, saved, bob);
+  requestAnimationFrame(animateReturn);
+}
+requestAnimationFrame(animateReturn);
+
+function loadSavedTraits() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null'); }
+  catch (e) { return null; }
+}
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+document.getElementById('confirmBtn').addEventListener('click', () => {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(traits)); }
+  catch (e) { console.warn('No se pudo guardar en localStorage (normal en la vista previa del chat):', e); }
+  document.getElementById('welcomeName').textContent = `Bienvenido, ${traits.name}`;
+  showScreen('welcomeBack');
+});
+
+const RARITY_COLORS = { 'Común':'#9a9aa5', 'Rara':'#4fa8e0', 'Épica':'#8b7cf5', 'Legendaria':'#ff9800', 'Mítica':'#ff6a9e' };
+let currentFusion = null;
+
+document.getElementById('playBtn').addEventListener('click', () => {
+  currentFusion = generateFusion();
+  const badgesEl = document.getElementById('fusionBadges');
+  badgesEl.innerHTML = '';
+  currentFusion.picks.forEach(p => {
+    const b = document.createElement('div');
+    b.className = 'fusion-badge';
+    b.style.borderColor = ARCH_COLORS[p.arch];
+    b.style.boxShadow = `0 0 16px -2px ${ARCH_COLORS[p.arch]}`;
+    b.textContent = p.name;
+    badgesEl.appendChild(b);
+  });
+  const rarityEl = document.getElementById('fusionRarity');
+  rarityEl.textContent = currentFusion.rarity;
+  rarityEl.style.background = RARITY_COLORS[currentFusion.rarity];
+  rarityEl.style.color = '#12131a';
+  document.getElementById('fusionStats').innerHTML = `
+    <div><div class="fusion-stat-label">Vida</div><div class="fusion-stat-value">${currentFusion.vida}</div></div>
+    <div><div class="fusion-stat-label">Daño</div><div class="fusion-stat-value">${currentFusion.dmg}</div></div>
+    <div><div class="fusion-stat-label">Vel. Movimiento</div><div class="fusion-stat-value">${currentFusion.moveSpeed}</div></div>
+    <div><div class="fusion-stat-label">Vel. Recarga</div><div class="fusion-stat-value">${currentFusion.reload}/s</div></div>
+    <div><div class="fusion-stat-label">Alcance</div><div class="fusion-stat-value">${currentFusion.rangeLabel} (${currentFusion.range})</div></div>
+    <div><div class="fusion-stat-label">Precisión</div><div class="fusion-stat-value">${currentFusion.precision}%</div></div>
+  `;
+  showScreen('fusionScreen');
+});
+
+document.getElementById('enterArenaBtn').addEventListener('click', () => {
+  const saved = loadSavedTraits() || traits;
+  startMatch(saved, currentFusion);
+});
+
+document.getElementById('resetLink').addEventListener('click', () => {
+  localStorage.removeItem(STORAGE_KEY);
+  location.reload();
+});
+
+(function init() {
+  const saved = loadSavedTraits();
+  if (saved) {
+    document.getElementById('welcomeName').textContent = `Bienvenido de vuelta, ${saved.name}`;
+    showScreen('welcomeBack');
+  } else {
+    showScreen('creator');
+  }
+})();
+
+// =====================================================================
+// PARTE B — PARTIDA JUGABLE (usa los rasgos guardados)
+// =====================================================================
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+
+function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
+function angleTo(a, b) { return Math.atan2(b.y - a.y, b.x - a.x); }
+function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+function rand(min, max) { return min + Math.random() * (max - min); }
+
+// ---------- ROSTER DE 48 PERSONAJES BASE Y MOTOR DE FUSIÓN ----------
+// Código de arquetipo: (Inteligencia · Fuerza · Velocidad), + = Alta, - = Baja
+const ROSTER = [
+  {name:'Nova', arch:'+++'}, {name:'Kepler', arch:'+++'}, {name:'Iris', arch:'+++'}, {name:'Magnus', arch:'+++'}, {name:'Selene', arch:'+++'}, {name:'Cipher', arch:'+++'},
+  {name:'Thane', arch:'++-'}, {name:'Ferra', arch:'++-'}, {name:'Coral', arch:'++-'}, {name:'Duna', arch:'++-'}, {name:'Titanio', arch:'++-'}, {name:'Bastión', arch:'++-'},
+  {name:'Vex', arch:'+-+'}, {name:'Nix', arch:'+-+'}, {name:'Raven', arch:'+-+'}, {name:'Static', arch:'+-+'}, {name:'Whisper', arch:'+-+'}, {name:'Cipher-9', arch:'+-+'},
+  {name:'Orin', arch:'+--'}, {name:'Delphine', arch:'+--'}, {name:'Mercurio', arch:'+--'}, {name:'Ábaco', arch:'+--'}, {name:'Glimmer', arch:'+--'}, {name:'Umbral', arch:'+--'},
+  {name:'Rax', arch:'-++'}, {name:'Fang', arch:'-++'}, {name:'Cinder', arch:'-++'}, {name:'Torque', arch:'-++'}, {name:'Bramble', arch:'-++'}, {name:'Rugido', arch:'-++'},
+  {name:'Grom, el Leñador', arch:'-+-'}, {name:'Bruto', arch:'-+-'}, {name:'Roca', arch:'-+-'}, {name:'Yunque', arch:'-+-'}, {name:'Coloso', arch:'-+-'}, {name:'Bramido', arch:'-+-'},
+  {name:'Zip', arch:'--+'}, {name:'Chispa', arch:'--+'}, {name:'Ráfaga', arch:'--+'}, {name:'Saeta', arch:'--+'}, {name:'Destello', arch:'--+'}, {name:'Veloz', arch:'--+'},
+  {name:'Pip', arch:'---'}, {name:'Migas', arch:'---'}, {name:'Tropiezo', arch:'---'}, {name:'Patoso', arch:'---'}, {name:'Chirri', arch:'---'}, {name:'Bobtail', arch:'---'}
+];
+const ARCH_COLORS = { '+++':'#ff7a45', '++-':'#8b7cf5', '+-+':'#2dd4bf', '+--':'#4fa8e0', '-++':'#ef4d6b', '-+-':'#e8823a', '--+':'#3ed17a', '---':'#9a9aa5' };
+
+function archFlags(arch) { return { int: arch[0] === '+', fue: arch[1] === '+', vel: arch[2] === '+' }; }
+function randIn([a, b]) { return rand(a, b); }
+
+function computeRarity(cI, cF, cV) {
+  const counts = [cI, cF, cV];
+  const highAligned = counts.filter(c => c === 3).length;
+  const lowAligned = counts.filter(c => c === 0).length;
+  if (highAligned === 3) return 'Mítica';
+  if (counts.every(c => c >= 2)) return 'Legendaria';
+  if (highAligned >= 2) return 'Épica';
+  if (highAligned >= 1 || lowAligned >= 2) return 'Rara';
+  return 'Común';
+}
+
+const DMG_RANGES = [[15,22],[20,28],[26,36],[33,46]];
+const VEL_RANGES = [[180,210],[200,230],[220,260],[250,300]];
+const RELOAD_RANGES = [[0.60,0.80],[0.75,0.95],[0.90,1.15],[1.10,1.40]];
+// Alcance recortado de verdad: corto es prácticamente cuerpo a cuerpo, largo no llega a cruzar el mapa
+const RANGE_RANGES = [[70,100],[150,190],[200,240],[270,330]];
+const PREC_RANGES = [[0.70,0.80],[0.78,0.86],[0.85,0.93],[0.92,0.99]];
+// El tipo de arma en combate lo decide la Inteligencia de la Fusión, no la elección cosmética de la creación de personaje
+const WEAPON_BY_INT = ['guantes', 'hacha', 'hacha', 'baston'];
+const RANGE_LABEL_BY_INT = ['Corto', 'Medio', 'Medio', 'Largo'];
+// Compensación de daño: corto alcance pega más fuerte de cerca, largo alcance pega más flojo a distancia seg
+const DMG_MULT_BY_INT = [1.25, 1.0, 1.0, 0.7];
+
+function generateFusion() {
+  const picks = [0,1,2].map(() => ROSTER[Math.floor(Math.random() * ROSTER.length)]);
+  let cI = 0, cF = 0, cV = 0;
+  picks.forEach(p => { const f = archFlags(p.arch); if (f.int) cI++; if (f.fue) cF++; if (f.vel) cV++; });
+
+  const dmg = randIn(DMG_RANGES[cF]) * DMG_MULT_BY_INT[cI];
+  const moveSpeed = randIn(VEL_RANGES[cV]);
+  const reload = randIn(RELOAD_RANGES[cV]);
+  const range = randIn(RANGE_RANGES[cI]);
+  const precision = randIn(PREC_RANGES[cI]);
+  const vida = Math.round(600 - cF * 70 + rand(-20, 20));
+
+  return {
+    picks, cI, cF, cV,
+    dmg: Math.round(dmg),
+    moveSpeed: Math.round(moveSpeed),
+    reload: +reload.toFixed(2),
+    range: Math.round(range),
+    precision: Math.round(precision * 100),
+    vida,
+    rarity: computeRarity(cI, cF, cV),
+    weaponType: WEAPON_BY_INT[cI],
+    rangeLabel: RANGE_LABEL_BY_INT[cI]
+  };
+}
+
+const obstacles = [];
+for (let i = 0; i < 10; i++) {
+  obstacles.push({ x: rand(60, W - 60), y: rand(60, H - 60), r: rand(18, 30), type: Math.random() > 0.5 ? 'tree' : 'rock' });
+}
+
+const player = {
+  x: W / 2, y: H / 2, r: 20, speed: 220,
+  hp: 100, maxHp: 100, angle: 0,
+  shootCooldown: 0, shootRate: 0.45,
+  superCharge: 0, superMax: 5, superActive: false, superTimer: 0, superDuration: 0.8,
+  alive: true, walkPhase: 0, moving: false, attackAnim: 0,
+  traits: null // se rellena en startMatch()
+};
+
+function spawnBot() {
+  return {
+    x: rand(80, W - 80), y: rand(80, H - 80), r: 20, speed: 130,
+    hp: 60, maxHp: 60, angle: 0,
+    shootCooldown: rand(0, 1), shootRate: 1.1, range: 320,
+    alive: true, respawnTimer: 0, color: '#c1544c',
+    walkPhase: rand(0, 6), moving: false, attackAnim: 0
+  };
+}
+const bots = [spawnBot(), spawnBot()];
+let kills = 0;
+const projectiles = [];
+
+const keys = {};
+let mouse = { x: W / 2, y: 0 };
+window.addEventListener('keydown', e => {
+  keys[e.key.toLowerCase()] = true;
+  if (e.key === ' ') { e.preventDefault(); tryActivateSuper(); }
+});
+window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+canvas.addEventListener('mousemove', e => {
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / rect.width, scaleY = canvas.height / rect.height;
+  mouse.x = (e.clientX - rect.left) * scaleX;
+  mouse.y = (e.clientY - rect.top) * scaleY;
+});
+let mouseDown = false;
+canvas.addEventListener('mousedown', e => { if (e.button === 0) mouseDown = true; });
+window.addEventListener('mouseup', e => { if (e.button === 0) mouseDown = false; });
+
+document.getElementById('touchSuperBtn').addEventListener('click', tryActivateSuper);
+document.getElementById('touchSuperBtn').addEventListener('touchend', e => {
+  e.preventDefault();
+  e.stopPropagation();
+  tryActivateSuper();
+}, { passive: false });
+
+// ---------- CONTROLES TÁCTILES (dos joysticks virtuales) ----------
+const JOY_RADIUS = 46;
+const JOY_DEADZONE = 10;
+let moveTouch = null; // { id, baseX, baseY, curX, curY }
+let aimTouch = null;
+
+function canvasCoordsFromTouch(t, rect) {
+  const scaleX = canvas.width / rect.width, scaleY = canvas.height / rect.height;
+  return { x: (t.clientX - rect.left) * scaleX, y: (t.clientY - rect.top) * scaleY, clientX: t.clientX, clientY: t.clientY };
+}
+
+canvas.addEventListener('touchstart', e => {
+  e.preventDefault();
+  const rect = canvas.getBoundingClientRect();
+  for (const t of e.changedTouches) {
+    const p = canvasCoordsFromTouch(t, rect);
+    const isLeftHalf = (t.clientX - rect.left) < rect.width / 2;
+    if (isLeftHalf && !moveTouch) {
+      moveTouch = { id: t.identifier, baseX: p.x, baseY: p.y, curX: p.x, curY: p.y };
+    } else if (!isLeftHalf && !aimTouch) {
+      aimTouch = { id: t.identifier, baseX: p.x, baseY: p.y, curX: p.x, curY: p.y };
+    }
+  }
+}, { passive: false });
+
+canvas.addEventListener('touchmove', e => {
+  e.preventDefault();
+  const rect = canvas.getBoundingClientRect();
+  for (const t of e.changedTouches) {
+    const p = canvasCoordsFromTouch(t, rect);
+    if (moveTouch && t.identifier === moveTouch.id) { moveTouch.curX = p.x; moveTouch.curY = p.y; }
+    if (aimTouch && t.identifier === aimTouch.id) { aimTouch.curX = p.x; aimTouch.curY = p.y; }
+  }
+}, { passive: false });
+
+function endTouch(e) {
+  for (const t of e.changedTouches) {
+    if (moveTouch && t.identifier === moveTouch.id) moveTouch = null;
+    if (aimTouch && t.identifier === aimTouch.id) aimTouch = null;
+  }
+}
+canvas.addEventListener('touchend', endTouch);
+canvas.addEventListener('touchcancel', endTouch);
+
+function drawJoystick(j, color) {
+  if (!j) return;
+  let dx = j.curX - j.baseX, dy = j.curY - j.baseY;
+  const mag = Math.hypot(dx, dy);
+  if (mag > JOY_RADIUS) { dx = (dx / mag) * JOY_RADIUS; dy = (dy / mag) * JOY_RADIUS; }
+  ctx.save();
+  ctx.globalAlpha = 0.35;
+  ctx.strokeStyle = color; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.arc(j.baseX, j.baseY, JOY_RADIUS, 0, Math.PI * 2); ctx.stroke();
+  ctx.globalAlpha = 0.55;
+  ctx.fillStyle = color;
+  ctx.beginPath(); ctx.arc(j.baseX + dx, j.baseY + dy, 18, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+
+function shoot(shooter, angle, isBot) {
+  if (shooter.shootCooldown > 0) return;
+  if (shooter === player && player.superActive) return;
+  shooter.shootCooldown = shooter.shootRate;
+  shooter.attackAnim = 0.28;
+  const weaponType = (!isBot && shooter.traits) ? shooter.traits.weapon : 'hacha';
+  const color = (!isBot && shooter.traits) ? shooter.traits.outfit : '#ffb74d';
+
+  let finalAngle = angle;
+  let damage = isBot ? 8 : 14;
+  let projSpeed = 480;
+  let life = 1.2;
+
+  if (!isBot && shooter.baseDamage) {
+    // Dispersión: cuanta menos precisión, más se desvía el disparo
+    const spread = (1 - shooter.precision) * 0.35;
+    finalAngle = angle + (Math.random() - 0.5) * spread;
+    damage = shooter.baseDamage;
+    life = (shooter.projRange || 340) / projSpeed;
+  }
+
+  projectiles.push({
+    x: shooter.x, y: shooter.y, angle: finalAngle, speed: projSpeed,
+    owner: isBot ? 'bot' : 'player', ownerRef: shooter,
+    damage, life, spin: 0,
+    weaponType, color
+  });
+}
+
+function tryActivateSuper() {
+  if (player.superCharge >= player.superMax && !player.superActive) {
+    player.superActive = true; player.superTimer = player.superDuration; player.superCharge = 0;
+  }
+}
+
+function update(dt) {
+  if (!player.superActive) {
+    let dx = 0, dy = 0;
+    if (keys['w']) dy -= 1; if (keys['s']) dy += 1;
+    if (keys['a']) dx -= 1; if (keys['d']) dx += 1;
+
+    // Joystick táctil de movimiento (anula al teclado si está activo)
+    if (moveTouch) {
+      const mdx = moveTouch.curX - moveTouch.baseX, mdy = moveTouch.curY - moveTouch.baseY;
+      const mag = Math.hypot(mdx, mdy);
+      if (mag > JOY_DEADZONE) { dx = mdx; dy = mdy; }
+      else { dx = 0; dy = 0; }
+    }
+
+    if (dx || dy) {
+      const len = Math.hypot(dx, dy);
+      player.x += (dx / len) * player.speed * dt;
+      player.y += (dy / len) * player.speed * dt;
+      player.moving = true; player.walkPhase += dt * 11;
+    } else { player.moving = false; }
+
+    // Puntería: joystick táctil de apuntado tiene prioridad, si no, el ratón
+    if (aimTouch) {
+      const adx = aimTouch.curX - aimTouch.baseX, ady = aimTouch.curY - aimTouch.baseY;
+      if (Math.hypot(adx, ady) > JOY_DEADZONE) {
+        player.angle = Math.atan2(ady, adx);
+        shoot(player, player.angle, false); // disparo continuo mientras se mantenga el joystick
+      }
+    } else {
+      player.angle = angleTo(player, mouse);
+      if (mouseDown) shoot(player, player.angle, false); // disparo continuo con el ratón mantenido
+    }
+  }
+  player.x = clamp(player.x, player.r, W - player.r);
+  player.y = clamp(player.y, player.r, H - player.r);
+  if (player.shootCooldown > 0) player.shootCooldown -= dt;
+  if (player.attackAnim > 0) player.attackAnim -= dt;
+
+  if (player.superActive) {
+    player.superTimer -= dt;
+    player.spinAngle = (player.spinAngle || 0) + dt * 22;
+    const superRadius = 90;
+    bots.forEach(b => {
+      if (!b.alive) return;
+      if (dist(player, b) < superRadius) {
+        b._superHitCooldown = b._superHitCooldown || 0;
+        if (b._superHitCooldown <= 0) { damageBot(b, 10); b._superHitCooldown = 0.2; }
+      }
+    });
+    bots.forEach(b => { if (b._superHitCooldown > 0) b._superHitCooldown -= dt; });
+    if (player.superTimer <= 0) { player.superActive = false; player.spinAngle = 0; }
+  }
+
+  bots.forEach(bot => {
+    if (!bot.alive) {
+      bot.respawnTimer -= dt;
+      if (bot.respawnTimer <= 0) Object.assign(bot, spawnBot());
+      return;
+    }
+    const d = dist(bot, player);
+    bot.angle = angleTo(bot, player);
+    bot.moving = false;
+    if (d > bot.range * 0.6) { bot.x += Math.cos(bot.angle) * bot.speed * dt; bot.y += Math.sin(bot.angle) * bot.speed * dt; bot.moving = true; }
+    else if (d < bot.range * 0.35) { bot.x -= Math.cos(bot.angle) * bot.speed * 0.6 * dt; bot.y -= Math.sin(bot.angle) * bot.speed * 0.6 * dt; bot.moving = true; }
+    if (bot.moving) bot.walkPhase += dt * 11;
+    bot.x = clamp(bot.x, bot.r, W - bot.r); bot.y = clamp(bot.y, bot.r, H - bot.r);
+    if (bot.shootCooldown > 0) bot.shootCooldown -= dt;
+    if (bot.attackAnim > 0) bot.attackAnim -= dt;
+    if (d < bot.range && bot.shootCooldown <= 0 && player.alive) shoot(bot, bot.angle, true);
+  });
+
+  for (let i = projectiles.length - 1; i >= 0; i--) {
+    const p = projectiles[i];
+    p.x += Math.cos(p.angle) * p.speed * dt;
+    p.y += Math.sin(p.angle) * p.speed * dt;
+    p.life -= dt; p.spin += dt * 25;
+    let hit = false;
+    if (p.owner === 'player') {
+      bots.forEach(b => { if (b.alive && dist(p, b) < b.r) { damageBot(b, p.damage); player.superCharge = Math.min(player.superMax, player.superCharge + 1); hit = true; } });
+    } else {
+      if (player.alive && !player.superActive && dist(p, player) < player.r) { damagePlayer(p.damage); hit = true; }
+    }
+    if (hit || p.life <= 0 || p.x < 0 || p.x > W || p.y < 0 || p.y > H) projectiles.splice(i, 1);
+  }
+  updateHUD();
+}
+
+function damageBot(bot, dmg) {
+  bot.hp -= dmg;
+  if (bot.hp <= 0 && bot.alive) {
+    bot.alive = false; bot.respawnTimer = 2.2; kills++;
+    document.getElementById('kills').textContent = kills;
+    flashMessage('¡Rival derrotado!', 700);
+  }
+}
+function triggerDamageFlash() {
+  const el = document.getElementById('damageFlash');
+  el.style.transition = 'none'; el.style.opacity = '0.45';
+  requestAnimationFrame(() => { el.style.transition = 'opacity 0.35s ease-out'; el.style.opacity = '0'; });
+}
+function damagePlayer(dmg) {
+  player.hp -= dmg;
+  triggerDamageFlash();
+  if (player.hp <= 0 && player.alive) {
+    player.alive = false;
+    flashMessage('Has caído... reapareciendo', 1500);
+    setTimeout(() => { player.hp = player.maxHp; player.x = W / 2; player.y = H / 2; player.alive = true; }, 1500);
+  }
+}
+let msgTimeout = null;
+function flashMessage(text, ms) {
+  const el = document.getElementById('centerMsg');
+  el.textContent = text; el.style.display = 'block';
+  clearTimeout(msgTimeout);
+  msgTimeout = setTimeout(() => el.style.display = 'none', ms);
+}
+function updateHUD() {
+  document.getElementById('hpFill').style.width = clamp(player.hp / player.maxHp * 100, 0, 100) + '%';
+  document.getElementById('superFill').style.width = (player.superCharge / player.superMax * 100) + '%';
+  const superText = document.getElementById('superText');
+  const superBtn = document.getElementById('touchSuperBtn');
+  const ready = player.superCharge >= player.superMax && !player.superActive;
+  superText.textContent = ready ? '¡SUPER LISTO!' : `Super: ${player.superCharge}/${player.superMax} golpes`;
+  superBtn.classList.toggle('ready', ready);
+}
+
+function drawArena() {
+  ctx.fillStyle = '#3c5a34'; ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = 'rgba(0,0,0,0.05)';
+  for (let x = 0; x < W; x += 40) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+  obstacles.forEach(o => {
+    if (o.type === 'tree') {
+      ctx.fillStyle = '#2e4a24'; ctx.beginPath(); ctx.arc(o.x, o.y, o.r, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#5b3a24'; ctx.fillRect(o.x - 4, o.y + o.r - 6, 8, 12);
+    } else {
+      ctx.fillStyle = '#7d7d78'; ctx.beginPath(); ctx.ellipse(o.x, o.y, o.r, o.r * 0.75, 0, 0, Math.PI * 2); ctx.fill();
+    }
+  });
+}
+function drawHealthBar(entity, w = 44) {
+  const x = entity.x - w / 2, y = entity.y - entity.r - 16;
+  ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(x, y, w, 6);
+  ctx.fillStyle = entity === player ? '#8bc34a' : '#ff5252';
+  ctx.fillRect(x, y, w * clamp(entity.hp / entity.maxHp, 0, 1), 6);
+}
+function drawLegs(p, bootColor) {
+  const swing = p.moving ? Math.sin(p.walkPhase) * 9 : 0;
+  const swing2 = p.moving ? Math.sin(p.walkPhase + Math.PI) * 9 : 0;
+  ctx.save(); ctx.fillStyle = bootColor; ctx.strokeStyle = 'rgba(0,0,0,0.25)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.ellipse(p.x - 7, p.y + p.r * 0.7 + swing * 0.4, 5, 9, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.ellipse(p.x + 7, p.y + p.r * 0.7 + swing2 * 0.4, 5, 9, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  ctx.restore();
+}
+
+// Jugador dibujado con SUS rasgos guardados (piel, pelo, ropa, arma)
+function drawPlayerTopDown(p, isSpinning) {
+  const t = p.traits || { outfit: '#8b3a2f', hairColor: '#5a3a22', skin: '#f0b98a', weapon: 'hacha' };
+  const combatWeapon = t.weapon || 'hacha';
+  drawLegs(p, '#2c2016');
+
+  ctx.save();
+  ctx.translate(p.x, p.y);
+  ctx.rotate(isSpinning ? (p.spinAngle || 0) : p.angle);
+
+  const armSwing = p.moving && !isSpinning ? Math.sin(p.walkPhase) * 0.35 : 0;
+  ctx.save();
+  ctx.rotate(Math.PI - 0.5 - armSwing);
+  ctx.fillStyle = t.outfit;
+  ctx.fillRect(0, -3, p.r * 0.6, 6);
+  ctx.fillStyle = t.skin;
+  ctx.beginPath(); ctx.arc(p.r * 0.6, 0, 4, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+
+  ctx.fillStyle = t.outfit;
+  ctx.beginPath(); ctx.arc(0, 0, p.r, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = 2; ctx.stroke();
+
+  // cara/piel visible hacia la dirección en la que mira
+  ctx.fillStyle = t.skin;
+  ctx.beginPath(); ctx.arc(p.r * 0.42, 0, p.r * 0.46, 0, Math.PI * 2); ctx.fill();
+
+  // peinado real (afecta a la silueta visible desde arriba)
+  ctx.fillStyle = t.hairColor;
+  if (t.hairStyle === 'largo') {
+    // melena que cubre buena parte de la cabeza y cae hacia atrás
+    ctx.beginPath(); ctx.ellipse(-p.r * 0.15, 0, p.r * 0.68, p.r * 0.62, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = t.skin;
+    ctx.beginPath(); ctx.arc(p.r * 0.42, 0, p.r * 0.4, -0.9, 0.9); ctx.fill();
+  } else if (t.hairStyle === 'calvo') {
+    // apenas una sombra de contorno, casi sin pelo visible
+    ctx.globalAlpha = 0.35;
+    ctx.beginPath(); ctx.arc(-p.r * 0.3, 0, p.r * 0.3, -0.7, 0.7); ctx.fill();
+    ctx.globalAlpha = 1;
+  } else {
+    // corto: mechón compacto en la parte trasera de la cabeza
+    ctx.beginPath(); ctx.arc(-p.r * 0.05, 0, p.r * 0.55, -0.75, 0.75); ctx.fill();
+  }
+
+  const attackProgress = p.attackAnim > 0 ? (0.28 - p.attackAnim) / 0.28 : 1;
+  const attackSwing = p.attackAnim > 0 ? Math.sin(attackProgress * Math.PI) * 0.9 : 0;
+  ctx.save();
+  ctx.rotate(isSpinning ? 0 : 0.3 - attackSwing);
+  ctx.fillStyle = t.outfit;
+  ctx.fillRect(p.r - 2, -3, 10, 6);
+  ctx.fillStyle = t.skin;
+  ctx.beginPath(); ctx.arc(p.r + 6, 0, 4.5, 0, Math.PI * 2); ctx.fill();
+  ctx.translate(p.r + 6, 0);
+
+  if (combatWeapon === 'guantes') {
+    ctx.fillStyle = t.skin;
+    ctx.beginPath(); ctx.arc(10, 0, 10, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(10, 0, 10, 0, Math.PI * 2); ctx.stroke();
+  } else if (combatWeapon === 'baston') {
+    ctx.fillStyle = '#5c4a3a'; ctx.fillRect(-2, -3, 26, 6);
+    ctx.fillStyle = '#8ad8f0'; ctx.shadowColor = '#8ad8f0'; ctx.shadowBlur = 10;
+    ctx.beginPath(); ctx.arc(28, 0, 8, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
+  } else {
+    ctx.fillStyle = '#7a5230'; ctx.fillRect(-2, -3, 22, 6);
+    ctx.fillStyle = '#c9c9c9';
+    ctx.beginPath(); ctx.moveTo(20, -12); ctx.lineTo(34, -4); ctx.lineTo(34, 4); ctx.lineTo(20, 12); ctx.closePath(); ctx.fill();
+  }
+  ctx.restore();
+  ctx.restore();
+
+  if (isSpinning) {
+    ctx.save(); ctx.strokeStyle = 'rgba(255, 213, 79, 0.6)'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(p.x, p.y, 90, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+  }
+}
+
+function drawBot(b) {
+  drawLegs(b, '#3a1712');
+  ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(b.angle);
+  const attackProgress = b.attackAnim > 0 ? (0.28 - b.attackAnim) / 0.28 : 1;
+  const attackSwing = b.attackAnim > 0 ? Math.sin(attackProgress * Math.PI) * 0.7 : 0;
+  ctx.save(); ctx.rotate(0.25 - attackSwing);
+  ctx.fillStyle = b.color; ctx.fillRect(b.r - 2, -3, 12, 6); ctx.restore();
+  ctx.fillStyle = b.color; ctx.beginPath(); ctx.arc(0, 0, b.r, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = '#5c1c17'; ctx.lineWidth = 2; ctx.stroke();
+  ctx.fillStyle = '#ffe0b2'; ctx.beginPath(); ctx.arc(b.r * 0.4, 0, 5, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+
+function drawProjectile(p) {
+  ctx.save(); ctx.translate(p.x, p.y);
+  if (p.weaponType === 'guantes') {
+    ctx.fillStyle = p.color || '#ffd54f';
+    ctx.shadowColor = p.color || '#ffd54f'; ctx.shadowBlur = 12;
+    ctx.beginPath(); ctx.arc(0, 0, 7, 0, Math.PI * 2); ctx.fill();
+  } else if (p.weaponType === 'baston') {
+    ctx.fillStyle = '#8ad8f0';
+    ctx.shadowColor = '#8ad8f0'; ctx.shadowBlur = 14;
+    ctx.beginPath(); ctx.arc(0, 0, 6, 0, Math.PI * 2); ctx.fill();
+  } else {
+    ctx.rotate(p.spin);
+    ctx.fillStyle = p.owner === 'player' ? '#c9c9c9' : '#ffb74d';
+    ctx.beginPath(); ctx.moveTo(-6, -6); ctx.lineTo(6, 0); ctx.lineTo(-6, 6); ctx.closePath(); ctx.fill();
+  }
+  ctx.restore();
+}
+
+function draw() {
+  drawArena();
+  bots.forEach(b => { if (b.alive) { drawBot(b); drawHealthBar(b); } });
+  if (player.alive) { drawPlayerTopDown(player, player.superActive); drawHealthBar(player, 50); }
+  projectiles.forEach(drawProjectile);
+
+  drawJoystick(moveTouch, '#ffffff');
+  drawJoystick(aimTouch, '#4fd8f0');
+}
+
+let gameActive = false;
+function startMatch(savedTraits, fusion) {
+  player.traits = savedTraits;
+  player.fusion = fusion;
+  player.maxHp = fusion.vida;
+  player.hp = fusion.vida;
+  player.speed = fusion.moveSpeed;
+  player.shootRate = 1 / fusion.reload;
+  player.baseDamage = fusion.dmg;
+  player.precision = fusion.precision / 100;
+  player.projRange = fusion.range;
+  player.x = W / 2; player.y = H / 2;
+  player.superCharge = 0; player.alive = true;
+  const fusionNames = fusion.picks.map(p => p.name).join(' + ');
+  document.getElementById('gameTitle').textContent = `🪓 HEROIC GUARDIANS — ${savedTraits.name}`;
+  document.getElementById('gameSubtitle').textContent = `Fusión ${fusion.rarity}: ${fusionNames} · Alcance ${fusion.rangeLabel}`;
+  gameActive = true;
+  showScreen('gameScreen');
+}
+
+let last = performance.now();
+function loop(now) {
+  const dt = Math.min(0.033, (now - last) / 1000);
+  last = now;
+  if (gameActive) { update(dt); draw(); }
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
