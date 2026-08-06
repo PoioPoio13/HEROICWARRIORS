@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Timber Brawl — Creación de Personaje</title>
+<style>
+  :root {
+    --bg: #0b0c10;
+    --panel: #15171e;
+    --panel-2: #1c1f28;
+    --ink: #f4ede1;
+    --ink-dim: #93919b;
+    --accent: #e8823a;
+    --accent-dim: #b8631f;
+    --line: #2a2d38;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; min-height: 100vh;
+    background: radial-gradient(ellipse 1100px 700px at 50% 0%, #201526 0%, var(--bg) 55%);
+    color: var(--ink);
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+
+  .screen { display: none; min-height: 100vh; }
+  .screen.active { display: flex; }
+
+  /* ===== PANTALLA: CREACIÓN ===== */
+  #creator {
+    flex-direction: column;
+    align-items: center;
+    padding: 28px 16px 40px;
+  }
+  .title-block { text-align: center; margin-bottom: 18px; }
+  .title-block h1 {
+    margin: 0; font-size: clamp(22px, 4vw, 30px);
+    letter-spacing: 3px; text-transform: uppercase;
+    font-family: "Arial Black", "Franklin Gothic Bold", Haettenschweiler, sans-serif;
+    color: var(--ink);
+    text-shadow: 0 0 24px rgba(232,130,58,0.35);
+  }
+  .title-block p { margin: 6px 0 0; font-size: 13px; color: var(--ink-dim); }
+
+  .creator-layout {
+    display: flex; gap: 26px; flex-wrap: wrap;
+    justify-content: center; align-items: flex-start;
+    width: 100%; max-width: 900px;
+  }
+
+  .preview-card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 18px;
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+    width: 250px;
+  }
+  .preview-card canvas {
+    background: radial-gradient(ellipse at 50% 85%, rgba(232,130,58,0.12), transparent 70%);
+    border-radius: 12px;
+  }
+  #nameInput {
+    width: 100%; text-align: center;
+    background: var(--panel-2); border: 1px solid var(--line);
+    color: var(--ink); font-size: 14px; padding: 8px 10px;
+    border-radius: 8px; letter-spacing: 0.5px;
+  }
+  #nameInput:focus { outline: 1px solid var(--accent); }
+
+  .traits-card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 20px 22px;
+    flex: 1 1 380px;
+    max-width: 480px;
+  }
+  .trait-group { margin-bottom: 16px; }
+  .trait-group:last-child { margin-bottom: 0; }
+  .trait-label {
+    font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase;
+    color: var(--ink-dim); margin-bottom: 8px;
+  }
+  .swatch-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .swatch {
+    width: 32px; height: 32px; border-radius: 50%;
+    border: 2px solid transparent; cursor: pointer;
+    transition: transform 0.12s ease, border-color 0.12s ease;
+  }
+  .swatch:hover { transform: scale(1.1); }
+  .swatch.selected { border-color: var(--ink); box-shadow: 0 0 0 2px var(--accent); }
+
+  .option-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .option-btn {
+    background: var(--panel-2); border: 1px solid var(--line);
+    color: var(--ink-dim); font-size: 12.5px; padding: 8px 13px;
+    border-radius: 8px; cursor: pointer; letter-spacing: 0.3px;
+    transition: all 0.12s ease;
+  }
+  .option-btn:hover { color: var(--ink); border-color: var(--accent-dim); }
+  .option-btn.selected { background: var(--accent); color: #1a1006; border-color: var(--accent); font-weight: 700; }
+
+  .confirm-btn {
+    display: block; width: 100%; max-width: 900px;
+    margin-top: 22px;
+    background: linear-gradient(180deg, var(--accent), var(--accent-dim));
+    color: #1a1006; font-weight: 800; letter-spacing: 1px; text-transform: uppercase;
+    font-size: 14px; padding: 14px; border: none; border-radius: 12px;
+    cursor: pointer; box-shadow: 0 6px 20px -6px rgba(232,130,58,0.6);
+    transition: transform 0.1s ease;
+  }
+  .confirm-btn:hover { transform: translateY(-1px); }
+  .confirm-btn:active { transform: translateY(1px); }
+
+  .quality-note {
+    margin-top: 12px; font-size: 11.5px; color: var(--ink-dim);
+    text-align: center; max-width: 480px; line-height: 1.5;
+  }
+
+  /* ===== PANTALLA: BIENVENIDA DE VUELTA ===== */
+  #welcomeBack {
+    flex-direction: column; align-items: center; justify-content: center;
+    width: 100%; text-align: center; padding: 20px;
+  }
+  #welcomeBack h2 {
+    font-size: 22px; letter-spacing: 1px; margin-bottom: 4px;
+  }
+  #welcomeBack .sub { color: var(--ink-dim); font-size: 13px; margin-bottom: 22px; }
+  #playBtn {
+    margin-top: 20px;
+    background: linear-gradient(180deg, var(--accent), var(--accent-dim));
+    color: #1a1006; font-weight: 800; letter-spacing: 1px; text-transform: uppercase;
+    font-size: 15px; padding: 14px 40px; border: none; border-radius: 12px;
+    cursor: pointer; box-shadow: 0 6px 20px -6px rgba(232,130,58,0.6);
+  }
+  #resetLink {
+    margin-top: 18px; font-size: 11.5px; color: var(--ink-dim);
+    text-decoration: underline; cursor: pointer; background: none; border: none;
+  }
+</style>
+</head>
+<body>
+
+<!-- ================= PANTALLA 1: CREACIÓN (solo primera vez) ================= -->
+<div class="screen" id="creator">
+  <div class="title-block">
+    <h1>Crea tu personaje</h1>
+    <p>Esto solo se pregunta una vez — se guarda automáticamente</p>
+  </div>
+
+  <div class="creator-layout">
+    <div class="preview-card">
+      <canvas id="previewCanvas" width="200" height="260"></canvas>
+      <input id="nameInput" type="text" maxlength="16" placeholder="Nombre del personaje" value="Rook">
+    </div>
+
+    <div class="traits-card">
+      <div class="trait-group">
+        <div class="trait-label">Tono de piel</div>
+        <div class="swatch-row" id="skinRow"></div>
+      </div>
+      <div class="trait-group">
+        <div class="trait-label">Color de pelo</div>
+        <div class="swatch-row" id="hairColorRow"></div>
+      </div>
+      <div class="trait-group">
+        <div class="trait-label">Peinado</div>
+        <div class="option-row" id="hairStyleRow"></div>
+      </div>
+      <div class="trait-group">
+        <div class="trait-label">Color de ropa</div>
+        <div class="swatch-row" id="outfitRow"></div>
+      </div>
+      <div class="trait-group">
+        <div class="trait-label">Estilo de combate</div>
+        <div class="option-row" id="weaponRow"></div>
+      </div>
+    </div>
+  </div>
+
+  <button class="confirm-btn" id="confirmBtn">Confirmar y guardar personaje</button>
+  <p class="quality-note">
+    Calidad actual: representación vectorial procedural. Estos mismos rasgos (piel, pelo, ropa, arma)
+    quedarán guardados para que, más adelante, alimenten un retrato estilo anime generado con IA sin tener que volver a elegir nada.
+  </p>
+</div>
+
+<!-- ================= PANTALLA 2: BIENVENIDA DE VUELTA ================= -->
+<div class="screen" id="welcomeBack">
+  <canvas id="returnCanvas" width="220" height="280"></canvas>
+  <h2 id="welcomeName">Bienvenido de vuelta</h2>
+  <p class="sub">Tu personaje ya está guardado — listo para entrar a la arena</p>
+  <button id="playBtn">Jugar</button>
+  <button id="resetLink">Restablecer personaje (debug)</button>
+</div>
+
+<script>
+// ---------- PALETAS ----------
+const SKIN_TONES = ['#ffdcb0', '#f0b98a', '#c98a5e', '#8a5a3c', '#5c3823'];
+const HAIR_COLORS = ['#2b1a10', '#5c3a1e', '#8a4a2a', '#c9a13a', '#787878', '#b23a3a'];
+const HAIR_STYLES = [
+  { id: 'corto', label: 'Corto' },
+  { id: 'largo', label: 'Largo' },
+  { id: 'calvo', label: 'Rapado' }
+];
+const OUTFIT_COLORS = ['#8b3a2f', '#3a5f8b', '#3a7d4a', '#6a3a8b', '#8b7a3a', '#4a4a52'];
+const WEAPONS = [
+  { id: 'hacha', label: '🪓 Hacha' },
+  { id: 'guantes', label: '👊 Guantes' },
+  { id: 'baston', label: '🔮 Bastón' }
+];
+
+const STORAGE_KEY = 'timberBrawlCharacter';
+
+let traits = {
+  name: 'Rook',
+  skin: SKIN_TONES[1],
+  hairColor: HAIR_COLORS[0],
+  hairStyle: 'corto',
+  outfit: OUTFIT_COLORS[0],
+  weapon: 'hacha'
+};
+
+// ---------- CONSTRUCCIÓN DE SELECTORES ----------
+function buildSwatches(containerId, colors, key) {
+  const el = document.getElementById(containerId);
+  colors.forEach(color => {
+    const sw = document.createElement('div');
+    sw.className = 'swatch';
+    sw.style.background = color;
+    sw.addEventListener('click', () => {
+      traits[key] = color;
+      [...el.children].forEach(c => c.classList.remove('selected'));
+      sw.classList.add('selected');
+      drawCharacter(previewCtx, 100, 130, 1, traits, 0);
+    });
+    el.appendChild(sw);
+  });
+  el.children[0].classList.add('selected');
+}
+
+function buildOptions(containerId, options, key) {
+  const el = document.getElementById(containerId);
+  options.forEach(opt => {
+    const btn = document.createElement('div');
+    btn.className = 'option-btn';
+    btn.textContent = opt.label;
+    btn.addEventListener('click', () => {
+      traits[key] = opt.id;
+      [...el.children].forEach(c => c.classList.remove('selected'));
+      btn.classList.add('selected');
+      drawCharacter(previewCtx, 100, 130, 1, traits, 0);
+    });
+    el.appendChild(btn);
+  });
+  el.children[0].classList.add('selected');
+}
+
+buildSwatches('skinRow', SKIN_TONES, 'skin');
+buildSwatches('hairColorRow', HAIR_COLORS, 'hairColor');
+buildOptions('hairStyleRow', HAIR_STYLES, 'hairStyle');
+buildSwatches('outfitRow', OUTFIT_COLORS, 'outfit');
+buildOptions('weaponRow', WEAPONS, 'weapon');
+
+document.getElementById('nameInput').addEventListener('input', e => {
+  traits.name = e.target.value || 'Rook';
+});
+
+// ---------- DIBUJO DEL PERSONAJE (vista frontal, estilo ficha de selección) ----------
+function drawCharacter(ctx, cx, baseY, scale, t, bob) {
+  ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  ctx.save();
+  ctx.translate(cx, baseY + bob);
+  ctx.scale(scale, scale);
+
+  // sombra
+  ctx.fillStyle = 'rgba(0,0,0,0.35)';
+  ctx.beginPath(); ctx.ellipse(0, 108, 46, 10, 0, 0, Math.PI * 2); ctx.fill();
+
+  // piernas
+  ctx.fillStyle = '#2c2016';
+  ctx.beginPath(); ctx.roundRect(-26, 40, 20, 60, 8); ctx.fill();
+  ctx.beginPath(); ctx.roundRect(6, 40, 20, 60, 8); ctx.fill();
+
+  // torso
+  ctx.fillStyle = t.outfit;
+  ctx.beginPath(); ctx.roundRect(-34, -30, 68, 76, 14); ctx.fill();
+  // cinturón
+  ctx.fillStyle = 'rgba(0,0,0,0.3)';
+  ctx.fillRect(-34, 30, 68, 8);
+
+  // brazos
+  ctx.fillStyle = t.outfit;
+  ctx.beginPath(); ctx.roundRect(-52, -20, 18, 56, 9); ctx.fill();
+  ctx.beginPath(); ctx.roundRect(34, -20, 18, 56, 9); ctx.fill();
+  // manos
+  ctx.fillStyle = t.skin;
+  ctx.beginPath(); ctx.arc(-43, 38, 10, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(43, 38, 10, 0, Math.PI * 2); ctx.fill();
+
+  // arma / accesorio en mano derecha
+  ctx.save();
+  ctx.translate(43, 38);
+  if (t.weapon === 'hacha') {
+    ctx.fillStyle = '#7a5230';
+    ctx.fillRect(-3, -46, 6, 46);
+    ctx.fillStyle = '#c9c9c9';
+    ctx.beginPath();
+    ctx.moveTo(3, -46); ctx.lineTo(20, -38); ctx.lineTo(20, -24); ctx.lineTo(3, -30);
+    ctx.closePath(); ctx.fill();
+  } else if (t.weapon === 'guantes') {
+    ctx.fillStyle = t.hairColor;
+    ctx.beginPath(); ctx.arc(0, -6, 13, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(0, -6, 13, 0, Math.PI * 2); ctx.stroke();
+  } else if (t.weapon === 'baston') {
+    ctx.fillStyle = '#5c4a3a';
+    ctx.fillRect(-3, -60, 6, 60);
+    ctx.fillStyle = '#8ad8f0';
+    ctx.shadowColor = '#8ad8f0'; ctx.shadowBlur = 10;
+    ctx.beginPath(); ctx.arc(0, -64, 9, 0, Math.PI * 2); ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+  ctx.restore();
+
+  // cabeza
+  ctx.fillStyle = t.skin;
+  ctx.beginPath(); ctx.arc(0, -50, 24, 0, Math.PI * 2); ctx.fill();
+
+  // ojos
+  ctx.fillStyle = '#2a2018';
+  ctx.beginPath(); ctx.arc(-8, -50, 2.4, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(8, -50, 2.4, 0, Math.PI * 2); ctx.fill();
+
+  // pelo
+  ctx.fillStyle = t.hairColor;
+  if (t.hairStyle === 'corto') {
+    ctx.beginPath(); ctx.arc(0, -58, 25, Math.PI, Math.PI * 2); ctx.fill();
+  } else if (t.hairStyle === 'largo') {
+    ctx.beginPath(); ctx.arc(0, -58, 25, Math.PI, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.roundRect(-26, -55, 12, 46, 6); ctx.fill();
+    ctx.beginPath(); ctx.roundRect(14, -55, 12, 46, 6); ctx.fill();
+  } else if (t.hairStyle === 'calvo') {
+    ctx.beginPath(); ctx.arc(0, -58, 25, Math.PI * 0.15, Math.PI * 0.85); ctx.fill();
+  }
+
+  ctx.restore();
+}
+
+// ---------- SETUP CANVASES ----------
+const previewCtx = document.getElementById('previewCanvas').getContext('2d');
+const returnCtx = document.getElementById('returnCanvas').getContext('2d');
+
+let t0 = performance.now();
+function animatePreview(now) {
+  const bob = Math.sin((now - t0) / 500) * 3;
+  drawCharacter(previewCtx, 100, 130, 1, traits, bob);
+  requestAnimationFrame(animatePreview);
+}
+requestAnimationFrame(animatePreview);
+
+let t1 = performance.now();
+function animateReturn(now) {
+  const bob = Math.sin((now - t1) / 500) * 3;
+  const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+  if (saved) drawCharacter(returnCtx, 110, 150, 1.05, saved, bob);
+  requestAnimationFrame(animateReturn);
+}
+requestAnimationFrame(animateReturn);
+
+// ---------- GUARDADO Y NAVEGACIÓN ----------
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+document.getElementById('confirmBtn').addEventListener('click', () => {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(traits));
+  } catch (e) {
+    console.warn('No se pudo guardar en localStorage (normal en la vista previa del chat):', e);
+  }
+  document.getElementById('welcomeName').textContent = `Bienvenido, ${traits.name}`;
+  showScreen('welcomeBack');
+});
+
+document.getElementById('playBtn').addEventListener('click', () => {
+  alert('Aquí conectaríamos con la arena principal (siguiente paso: cargar estos rasgos guardados dentro del prototipo jugable).');
+});
+
+document.getElementById('resetLink').addEventListener('click', () => {
+  localStorage.removeItem(STORAGE_KEY);
+  location.reload();
+});
+
+// ---------- COMPROBAR SI YA EXISTE UN PERSONAJE GUARDADO ----------
+(function init() {
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null'); }
+  catch (e) { saved = null; }
+
+  if (saved) {
+    document.getElementById('welcomeName').textContent = `Bienvenido de vuelta, ${saved.name}`;
+    showScreen('welcomeBack');
+  } else {
+    showScreen('creator');
+  }
+})();
+</script>
+
+</body>
+</html>
