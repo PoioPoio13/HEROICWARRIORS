@@ -521,11 +521,11 @@ function startFusionFlow(mode) {
   showScreen('fusionScreen');
 }
 
-document.getElementById('modeArenaBtn').addEventListener('click', () => { playSfx('click'); startFusionFlow('arena'); });
-document.getElementById('modeSurvivalBtn').addEventListener('click', () => { playSfx('click'); startFusionFlow('survival'); });
+document.getElementById('modeArenaBtn').addEventListener('click', () => { initAudio(); playSfx('click'); startFusionFlow('arena'); });
+document.getElementById('modeSurvivalBtn').addEventListener('click', () => { initAudio(); playSfx('click'); startFusionFlow('survival'); });
 
 document.getElementById('enterArenaBtn').addEventListener('click', () => {
-  playSfx('click');
+  initAudio(); playSfx('click');
   const saved = loadSavedTraits() || traits;
   startMatch(saved, currentFusion, selectedMode);
 });
@@ -562,12 +562,16 @@ let audioCtx = null, masterGain = null, musicGain = null, sfxGain = null;
 let musicPlaying = false, musicTimer = null, audioMuted = false;
 
 function initAudio() {
-  if (audioCtx) return;
+  if (audioCtx) {
+    if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+    return;
+  }
   try {
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     masterGain = audioCtx.createGain(); masterGain.gain.value = 0.55; masterGain.connect(audioCtx.destination);
     musicGain = audioCtx.createGain(); musicGain.gain.value = 0.2; musicGain.connect(masterGain);
     sfxGain = audioCtx.createGain(); sfxGain.gain.value = 0.8; sfxGain.connect(masterGain);
+    if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
   } catch (e) { console.warn('Audio no disponible:', e); }
 }
 
@@ -596,6 +600,7 @@ function playSfx(type) {
   else if (type === 'super') { [523, 659, 784, 1046].forEach((f, i) => tone(f, 0.13, 'square', sfxGain, t + i * 0.06, 0.28)); }
   else if (type === 'damage') tone(140, 0.13, 'sawtooth', sfxGain, t, 0.3);
   else if (type === 'click') tone(900, 0.045, 'square', sfxGain, t, 0.14);
+  else if (type === 'thud') tone(110, 0.06, 'triangle', sfxGain, t, 0.12);
   else if (type === 'victory') { [523, 659, 784, 1046, 1318].forEach((f, i) => tone(f, 0.2, 'square', sfxGain, t + i * 0.12, 0.28)); }
   else if (type === 'defeat') { [392, 349, 311, 262].forEach((f, i) => tone(f, 0.26, 'sawtooth', sfxGain, t + i * 0.15, 0.28)); }
 }
@@ -635,6 +640,22 @@ function toggleMute() {
   if (audioMuted) stopMusic(); else if (gameActive) startMusic();
 }
 
+// Empuja a una entidad (jugador o bot) fuera de cualquier árbol/roca con el que se solape.
+// El radio de colisión es algo menor que el visual, para que no se sienta exagerado.
+function pushOutOfObstacles(entity) {
+  obstacles.forEach(o => {
+    const collR = o.r * 0.72;
+    const dx = entity.x - o.x, dy = entity.y - o.y;
+    const d = Math.hypot(dx, dy);
+    const minDist = entity.r + collR;
+    if (d < minDist) {
+      if (d < 0.001) { entity.x += minDist; return; }
+      const push = minDist - d;
+      entity.x += (dx / d) * push;
+      entity.y += (dy / d) * push;
+    }
+  });
+}
 function findNearestTarget(from) {
   let best = null, bestDist = Infinity;
   bots.forEach(b => {
@@ -1112,6 +1133,7 @@ function update(dt) {
       if (target) player.angle = angleTo(player, target);
     }
   }
+  pushOutOfObstacles(player);
   player.x = clamp(player.x, player.r, WORLD_W - player.r);
   player.y = clamp(player.y, player.r, WORLD_H - player.r);
   if (player.shootCooldown > 0) player.shootCooldown -= dt;
@@ -1171,6 +1193,7 @@ function update(dt) {
     if (d > bot.projRange * 0.6) { bot.x += Math.cos(bot.angle) * bot.speed * dt; bot.y += Math.sin(bot.angle) * bot.speed * dt; bot.moving = true; }
     else if (d < bot.projRange * 0.35) { bot.x -= Math.cos(bot.angle) * bot.speed * 0.6 * dt; bot.y -= Math.sin(bot.angle) * bot.speed * 0.6 * dt; bot.moving = true; }
     if (bot.moving) bot.walkPhase += dt * 11;
+    pushOutOfObstacles(bot);
     bot.x = clamp(bot.x, bot.r, WORLD_W - bot.r); bot.y = clamp(bot.y, bot.r, WORLD_H - bot.r);
     if (bot.shootCooldown > 0) bot.shootCooldown -= dt;
     if (bot.attackAnim > 0) bot.attackAnim -= dt;
@@ -1211,8 +1234,11 @@ function update(dt) {
 
     const outOfBounds = p.x < 0 || p.x > WORLD_W || p.y < 0 || p.y > WORLD_H;
     const lifeOver = p.life <= 0;
+    // Los árboles y rocas cortan las líneas de tiro: cualquier proyectil que los toque se detiene ahí
+    const hitObstacle = !remove && obstacles.some(o => dist(p, o) < o.r * 0.72);
+    if (hitObstacle && p.ownerRef === player) playSfx('thud');
 
-    if (!remove && p.engine === 'lanzada' && (lifeOver || outOfBounds)) {
+    if (!remove && p.engine === 'lanzada' && (lifeOver || outOfBounds || hitObstacle)) {
       const aoeCandidates = [player, ...bots].filter(e => e !== p.ownerRef && e.alive);
       aoeCandidates.forEach(e => {
         if (dist(p, e) < (p.aoeRadius || 55)) {
@@ -1220,12 +1246,12 @@ function update(dt) {
         }
       });
       remove = true;
-    } else if (!remove && p.engine === 'bumeran' && lifeOver && p.phase === 'out') {
+    } else if (!remove && p.engine === 'bumeran' && (lifeOver || hitObstacle) && p.phase === 'out') {
       p.phase = 'back';
       p.life = p.maxLife;
       p.angle = p.angle + Math.PI;
       p.hitSet = new Set();
-    } else if (!remove && (lifeOver || outOfBounds)) {
+    } else if (!remove && (lifeOver || outOfBounds || hitObstacle)) {
       remove = true;
     }
 
@@ -1565,6 +1591,8 @@ function startMatch(savedTraits, fusion, mode) {
   document.getElementById('scoreBoard').innerHTML = gameMode === 'survival'
     ? `Rivales vivos: <span id="kills">${bots.length}</span>`
     : `Rivales derrotados: <span id="kills">0</span> / <span id="killTarget">${TARGET_KILLS}</span>`;
+  pushOutOfObstacles(player);
+  bots.forEach(b => pushOutOfObstacles(b));
   gameActive = true;
   showScreen('gameScreen');
   startMusic();
