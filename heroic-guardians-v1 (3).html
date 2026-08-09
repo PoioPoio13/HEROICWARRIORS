@@ -93,6 +93,19 @@
   /* ===== PANTALLA: BIENVENIDA DE VUELTA ===== */
   #welcomeBack { flex-direction: column; align-items: center; justify-content: center; width: 100%; text-align: center; padding: 20px; }
   #welcomeBack h2 { font-size: 22px; letter-spacing: 1px; margin-bottom: 4px; }
+  #matchEndScreen { flex-direction: column; align-items: center; justify-content: center; width: 100%; text-align: center; padding: 20px; }
+
+  /* ===== PANTALLA: ELECCIÓN DE MODO ===== */
+  #modeSelectScreen { flex-direction: column; align-items: center; justify-content: center; width: 100%; padding: 20px; text-align: center; }
+  .mode-cards { display: flex; gap: 18px; flex-wrap: wrap; justify-content: center; max-width: 760px; }
+  .mode-card {
+    background: var(--panel); border: 2px solid var(--line); border-radius: 16px;
+    padding: 22px; width: 300px; text-align: left; cursor: pointer;
+    color: var(--ink); transition: all 0.15s ease;
+  }
+  .mode-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .mode-card-title { font-size: 17px; font-weight: 800; margin-bottom: 8px; }
+  .mode-card-desc { font-size: 12.5px; color: var(--ink-dim); line-height: 1.5; }
   #welcomeBack .sub { color: var(--ink-dim); font-size: 13px; margin-bottom: 22px; }
   #playBtn {
     margin-top: 20px; background: linear-gradient(180deg, var(--accent), var(--accent-dim));
@@ -171,31 +184,37 @@
   #centerMsg { position: absolute; top: 45%; left: 50%; transform: translate(-50%, -50%); font-size: 40px; font-weight: bold; text-shadow: 2px 2px 4px #000; color: #ffeb3b; pointer-events: none; display: none; }
   #instructions { position: absolute; bottom: 10px; left: 10px; font-size: 12px; background: rgba(0,0,0,0.45); padding: 8px 12px; border-radius: 8px; line-height: 1.5; max-width: 260px; }
   #touchFireBtn {
-    position: absolute; bottom: 16px; right: 128px; z-index: 20;
-    background: linear-gradient(180deg, #4fd8f0, #1e90c9);
-    color: #06202b; font-weight: 800; letter-spacing: 0.5px;
-    border: none; border-radius: 999px; padding: 16px 18px;
-    font-size: 13px; box-shadow: 0 4px 14px -2px rgba(79,216,240,0.6);
-    cursor: pointer; touch-action: manipulation; opacity: 0.9;
+    position: absolute; bottom: 20px; right: 100px; z-index: 20;
+    width: 68px; height: 68px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #6fe8ff, #1e90c9);
+    border: 3px solid rgba(255,255,255,0.35);
+    box-shadow: 0 4px 16px -2px rgba(79,216,240,0.7);
+    cursor: pointer; touch-action: none; opacity: 0.92;
+    display: flex; align-items: center; justify-content: center;
   }
-  #touchFireBtn:active { transform: scale(0.94); }
+  #touchFireBtn::before {
+    content: ''; width: 16px; height: 16px; border-radius: 50%;
+    border: 2px solid rgba(6,32,43,0.55); background: rgba(6,32,43,0.15);
+  }
+  #touchFireBtn:active { transform: scale(0.92); }
   #touchSuperBtn {
-    position: absolute; bottom: 16px; right: 16px; z-index: 20;
+    position: absolute; bottom: 20px; right: 16px; z-index: 20;
+    width: 60px; height: 60px; border-radius: 14px;
     background: linear-gradient(180deg, #6b6b6b, #4a4a4a);
-    color: rgba(255,255,255,0.6); font-weight: 800; letter-spacing: 0.5px;
-    border: none; border-radius: 999px; padding: 16px 20px;
-    font-size: 13px; box-shadow: none;
+    border: 3px solid rgba(255,255,255,0.2);
+    font-size: 22px; box-shadow: none;
     cursor: pointer; touch-action: manipulation; opacity: 0.75;
     transition: all 0.2s ease;
+    display: flex; align-items: center; justify-content: center;
   }
   #touchSuperBtn.ready {
     background: linear-gradient(180deg, #ffd54f, #ff9800);
-    color: #1a1006; opacity: 1;
+    opacity: 1;
     box-shadow: 0 4px 18px -2px rgba(255,152,0,0.85);
     animation: superPulse 0.9s ease-in-out infinite;
   }
   @keyframes superPulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.08); } }
-  #touchSuperBtn:active { transform: scale(0.94); }
+  #touchSuperBtn:active { transform: scale(0.92); }
 </style>
 </head>
 <body>
@@ -209,7 +228,7 @@
   <div class="creator-layout">
     <div class="preview-card">
       <canvas id="previewCanvas" width="200" height="260"></canvas>
-      <input id="nameInput" type="text" maxlength="16" placeholder="Nombre del personaje" value="Rook">
+      <input id="nameInput" type="text" maxlength="16" placeholder="Escribe tu nombre" value="">
     </div>
     <div class="traits-card">
       <div class="trait-group"><div class="trait-label">Tono de piel</div><div class="swatch-row" id="skinRow"></div></div>
@@ -232,6 +251,24 @@
   <p class="sub">Tu personaje ya está guardado — listo para entrar a la arena</p>
   <button id="playBtn">Jugar</button>
   <button id="resetLink">Restablecer personaje (debug)</button>
+</div>
+
+<!-- ================= PANTALLA 2: ELECCIÓN DE MODO ================= -->
+<div class="screen" id="modeSelectScreen">
+  <div class="title-block">
+    <h1>¿Qué prefieres jugar?</h1>
+    <p>Elige un modo antes de generar tu Fusión</p>
+  </div>
+  <div class="mode-cards">
+    <button class="mode-card" id="modeArenaBtn">
+      <div class="mode-card-title">⚔️ Modo Arena</div>
+      <div class="mode-card-desc">Mapa clásico, reapareces al morir. Gana quien derrote a 10 rivales.</div>
+    </button>
+    <button class="mode-card" id="modeSurvivalBtn">
+      <div class="mode-card-title">🏆 Modo Supervivencia</div>
+      <div class="mode-card-desc">Mapa mucho más grande, muchos rivales sueltos que también luchan entre ellos. Sin reaparecer — ni tú ni ellos. Gana quien quede en pie.</div>
+    </button>
+  </div>
 </div>
 
 <!-- ================= PANTALLA 2.5: FUSIÓN PRE-PARTIDA ================= -->
@@ -261,16 +298,29 @@
       <div id="superText">Super: 0/5 golpes</div>
       <div class="barBg"><div id="superFill" class="barFill"></div></div>
     </div>
-    <div id="scoreBoard">Rivales derrotados: <span id="kills">0</span></div>
+    <div id="scoreBoard">Rivales derrotados: <span id="kills">0</span> / <span id="killTarget">10</span></div>
     <div id="centerMsg"></div>
     <div id="instructions">
       <b>Autoapuntado activo:</b> el personaje apunta solo al rival más cercano<br>
-      <b>Teclado/ratón:</b> WASD mover · botón 🎯 o clic disparar · mantén el ratón para apuntar manualmente · Espacio super<br>
-      <b>Táctil:</b> joystick izq. mover · botón 🎯 disparar · joystick der. para apuntar manualmente · botón ⚡ super
+      <b>Teclado/ratón:</b> WASD mover · botón azul o clic disparar · mantén el ratón para apuntar manualmente · Espacio super<br>
+      <b>Táctil:</b> joystick izq. mover · toca el botón azul para disparar, o arrástralo para apuntar tú y soltar · botón cuadrado super
     </div>
-    <button id="touchFireBtn">🎯 DISPARAR</button>
-    <button id="touchSuperBtn">⚡ SUPER</button>
+    <button id="touchFireBtn" aria-label="Disparar"></button>
+    <button id="touchSuperBtn" aria-label="Super">⚡</button>
   </div>
+</div>
+
+<!-- ================= PANTALLA 4: FIN DE PARTIDA ================= -->
+<div class="screen" id="matchEndScreen">
+  <div class="title-block">
+    <h1 id="endTitle">¡Victoria!</h1>
+    <p class="sub" id="endSubtitle">Has derrotado a suficientes rivales</p>
+  </div>
+  <div class="fusion-result" style="margin: 0 auto;">
+    <div class="fusion-stats" id="endStats"></div>
+  </div>
+  <button class="confirm-btn" id="playAgainBtn" style="max-width: 380px;">Jugar otra vez</button>
+  <button id="backToMenuBtn" style="margin-top: 14px; background: none; border: none; color: var(--ink-dim); text-decoration: underline; cursor: pointer; font-size: 12.5px;">Volver al menú</button>
 </div>
 
 <script>
@@ -284,7 +334,7 @@ const OUTFIT_COLORS = ['#8b3a2f', '#3a5f8b', '#3a7d4a', '#6a3a8b', '#8b7a3a', '#
 const WEAPONS = [{ id: 'hacha', label: '🪓 Hacha' }, { id: 'guantes', label: '👊 Guantes' }, { id: 'baston', label: '🔮 Bastón' }];
 const STORAGE_KEY = 'timberBrawlCharacter';
 
-let traits = { name: 'Rook', skin: SKIN_TONES[1], hairColor: HAIR_COLORS[0], hairStyle: 'corto', outfit: OUTFIT_COLORS[0], weapon: 'hacha' };
+let traits = { name: '', skin: SKIN_TONES[1], hairColor: HAIR_COLORS[0], hairStyle: 'corto', outfit: OUTFIT_COLORS[0], weapon: 'hacha' };
 
 function buildSwatches(containerId, colors, key) {
   const el = document.getElementById(containerId);
@@ -321,7 +371,7 @@ buildSwatches('hairColorRow', HAIR_COLORS, 'hairColor');
 buildOptions('hairStyleRow', HAIR_STYLES, 'hairStyle');
 buildSwatches('outfitRow', OUTFIT_COLORS, 'outfit');
 buildOptions('weaponRow', WEAPONS, 'weapon');
-document.getElementById('nameInput').addEventListener('input', e => { traits.name = e.target.value || 'Rook'; });
+document.getElementById('nameInput').addEventListener('input', e => { traits.name = e.target.value; });
 
 // Dibujo de personaje — vista frontal (pantallas de creación / bienvenida)
 function drawCharacter(ctx2, cx, baseY, scale, t, bob) {
@@ -404,6 +454,7 @@ function showScreen(id) {
 }
 
 document.getElementById('confirmBtn').addEventListener('click', () => {
+  if (!traits.name || !traits.name.trim()) traits.name = 'Rook';
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(traits)); }
   catch (e) { console.warn('No se pudo guardar en localStorage (normal en la vista previa del chat):', e); }
   document.getElementById('welcomeName').textContent = `Bienvenido, ${traits.name}`;
@@ -414,6 +465,12 @@ const RARITY_COLORS = { 'Común':'#9a9aa5', 'Rara':'#4fa8e0', 'Épica':'#8b7cf5'
 let currentFusion = null;
 
 document.getElementById('playBtn').addEventListener('click', () => {
+  showScreen('modeSelectScreen');
+});
+
+let selectedMode = 'arena';
+function startFusionFlow(mode) {
+  selectedMode = mode;
   currentFusion = generateFusion();
   const badgesEl = document.getElementById('fusionBadges');
   badgesEl.innerHTML = '';
@@ -453,11 +510,14 @@ document.getElementById('playBtn').addEventListener('click', () => {
     <div style="grid-column: 1 / -1;"><div class="fusion-stat-label">Superataque</div><div class="fusion-stat-value">${currentFusion.superDef.name}</div></div>
   `;
   showScreen('fusionScreen');
-});
+}
+
+document.getElementById('modeArenaBtn').addEventListener('click', () => startFusionFlow('arena'));
+document.getElementById('modeSurvivalBtn').addEventListener('click', () => startFusionFlow('survival'));
 
 document.getElementById('enterArenaBtn').addEventListener('click', () => {
   const saved = loadSavedTraits() || traits;
-  startMatch(saved, currentFusion);
+  startMatch(saved, currentFusion, selectedMode);
 });
 
 document.getElementById('resetLink').addEventListener('click', () => {
@@ -491,6 +551,19 @@ function findNearestTarget(from) {
   bots.forEach(b => {
     if (!b.alive) return;
     const d = dist(from, b);
+    if (d < bestDist) { bestDist = d; best = b; }
+  });
+  return best;
+}
+// Objetivo de un bot: en Arena siempre el jugador; en Supervivencia, el ser vivo más cercano
+// (jugador u otro bot), así que también se pelean entre ellos.
+function findBotTarget(bot) {
+  if (gameMode === 'arena') return player.alive ? player : null;
+  let best = null, bestDist = Infinity;
+  if (player.alive) { best = player; bestDist = dist(bot, player); }
+  bots.forEach(b => {
+    if (b === bot || !b.alive) return;
+    const d = dist(bot, b);
     if (d < bestDist) { bestDist = d; best = b; }
   });
   return best;
@@ -622,10 +695,19 @@ function generateFusion() {
   };
 }
 
-const obstacles = [];
-for (let i = 0; i < 10; i++) {
-  obstacles.push({ x: rand(60, W - 60), y: rand(60, H - 60), r: rand(18, 30), type: Math.random() > 0.5 ? 'tree' : 'rock' });
+// ---------- MUNDO / MODOS DE JUEGO ----------
+let gameMode = 'arena';
+let WORLD_W = W, WORLD_H = H; // en modo arena el mundo == el lienzo. En supervivencia, mucho más grande.
+const camera = { x: 0, y: 0 };
+
+function generateObstacles(worldW, worldH, count) {
+  const arr = [];
+  for (let i = 0; i < count; i++) {
+    arr.push({ x: rand(60, worldW - 60), y: rand(60, worldH - 60), r: rand(18, 30), type: Math.random() > 0.5 ? 'tree' : 'rock' });
+  }
+  return arr;
 }
+let obstacles = generateObstacles(WORLD_W, WORLD_H, 10);
 
 const player = {
   x: W / 2, y: H / 2, r: 20, speed: 220,
@@ -637,20 +719,31 @@ const player = {
 };
 
 function spawnBot() {
+  const fusion = generateFusion();
+  const outfitColor = OUTFIT_COLORS[Math.floor(Math.random() * OUTFIT_COLORS.length)];
+  // Los bots usan la variedad de velocidad/daño/arma/alcance de su Fusión,
+  // pero con vida propia mucho más baja: la fórmula del jugador está pensada
+  // para un único protagonista, no para varios rivales que hay que abatir uno a uno.
+  const botVida = Math.round(rand(50, 120));
   return {
-    x: rand(80, W - 80), y: rand(80, H - 80), r: 20, speed: 130,
-    hp: 60, maxHp: 60, angle: 0,
-    shootCooldown: rand(0, 1), shootRate: 1.1, range: 320,
-    alive: true, respawnTimer: 0, color: '#c1544c',
+    x: rand(80, WORLD_W - 80), y: rand(80, WORLD_H - 80), r: 20,
+    speed: fusion.moveSpeed,
+    hp: botVida, maxHp: botVida, angle: 0,
+    shootCooldown: rand(0, 1), shootRate: 1 / fusion.reload,
+    baseDamage: fusion.dmg, precision: fusion.precision / 100, projRange: fusion.range,
+    weaponDef: fusion.weapon, fusion,
+    alive: true, respawnTimer: 0, color: outfitColor,
     walkPhase: rand(0, 6), moving: false, attackAnim: 0
   };
 }
-const bots = [spawnBot(), spawnBot()];
+let bots = [spawnBot(), spawnBot()];
 let kills = 0;
+const TARGET_KILLS = 10;
 const projectiles = [];
 
 const keys = {};
 let mouse = { x: W / 2, y: 0 };
+function mouseWorld() { return { x: mouse.x + camera.x, y: mouse.y + camera.y }; }
 window.addEventListener('keydown', e => {
   keys[e.key.toLowerCase()] = true;
   if (e.key === ' ') { e.preventDefault(); tryActivateSuper(); }
@@ -667,7 +760,7 @@ canvas.addEventListener('mousedown', e => { if (e.button === 0) mouseDown = true
 window.addEventListener('mouseup', e => {
   if (e.button === 0 && mouseDown) {
     mouseDown = false;
-    if (gameActive) shoot(player, angleTo(player, mouse), false);
+    if (gameActive) shoot(player, angleTo(player, mouseWorld()), false);
   }
 });
 
@@ -682,18 +775,47 @@ function fireAtCurrentTarget() {
   if (!gameActive || !player.alive) return;
   shoot(player, player.angle, false);
 }
-document.getElementById('touchFireBtn').addEventListener('click', fireAtCurrentTarget);
-document.getElementById('touchFireBtn').addEventListener('touchend', e => {
+// Botón de disparo estilo Brawl Stars: toque simple = dispara al objetivo autoapuntado.
+// Arrastre = apuntas tú manualmente en esa dirección, y al soltar dispara hacia allí.
+const FIRE_BTN_DEADZONE = 14;
+let attackTouch = null; // { id, baseX, baseY, curX, curY } — coordenadas de pantalla (cliente), no de canvas
+const touchFireBtnEl = document.getElementById('touchFireBtn');
+
+touchFireBtnEl.addEventListener('touchstart', e => {
   e.preventDefault();
-  e.stopPropagation();
-  fireAtCurrentTarget();
+  const t = e.changedTouches[0];
+  attackTouch = { id: t.identifier, baseX: t.clientX, baseY: t.clientY, curX: t.clientX, curY: t.clientY };
 }, { passive: false });
 
-// ---------- CONTROLES TÁCTILES (dos joysticks virtuales) ----------
+touchFireBtnEl.addEventListener('touchmove', e => {
+  e.preventDefault();
+  for (const t of e.changedTouches) {
+    if (attackTouch && t.identifier === attackTouch.id) { attackTouch.curX = t.clientX; attackTouch.curY = t.clientY; }
+  }
+}, { passive: false });
+
+touchFireBtnEl.addEventListener('touchend', e => {
+  e.preventDefault();
+  for (const t of e.changedTouches) {
+    if (attackTouch && t.identifier === attackTouch.id) {
+      const adx = attackTouch.curX - attackTouch.baseX, ady = attackTouch.curY - attackTouch.baseY;
+      if (Math.hypot(adx, ady) > FIRE_BTN_DEADZONE) {
+        shoot(player, Math.atan2(ady, adx), false); // arrastre: dirección manual
+      } else {
+        fireAtCurrentTarget(); // toque simple: al objetivo autoapuntado
+      }
+      attackTouch = null;
+    }
+  }
+}, { passive: false });
+
+// En ratón/escritorio, un clic simple en el botón dispara al objetivo autoapuntado
+touchFireBtnEl.addEventListener('click', fireAtCurrentTarget);
+
+// ---------- CONTROLES TÁCTILES (joystick de movimiento) ----------
 const JOY_RADIUS = 46;
 const JOY_DEADZONE = 10;
 let moveTouch = null; // { id, baseX, baseY, curX, curY }
-let aimTouch = null;
 
 function canvasCoordsFromTouch(t, rect) {
   const scaleX = canvas.width / rect.width, scaleY = canvas.height / rect.height;
@@ -705,11 +827,8 @@ canvas.addEventListener('touchstart', e => {
   const rect = canvas.getBoundingClientRect();
   for (const t of e.changedTouches) {
     const p = canvasCoordsFromTouch(t, rect);
-    const isLeftHalf = (t.clientX - rect.left) < rect.width / 2;
-    if (isLeftHalf && !moveTouch) {
+    if (!moveTouch) {
       moveTouch = { id: t.identifier, baseX: p.x, baseY: p.y, curX: p.x, curY: p.y };
-    } else if (!isLeftHalf && !aimTouch) {
-      aimTouch = { id: t.identifier, baseX: p.x, baseY: p.y, curX: p.x, curY: p.y };
     }
   }
 }, { passive: false });
@@ -720,20 +839,12 @@ canvas.addEventListener('touchmove', e => {
   for (const t of e.changedTouches) {
     const p = canvasCoordsFromTouch(t, rect);
     if (moveTouch && t.identifier === moveTouch.id) { moveTouch.curX = p.x; moveTouch.curY = p.y; }
-    if (aimTouch && t.identifier === aimTouch.id) { aimTouch.curX = p.x; aimTouch.curY = p.y; }
   }
 }, { passive: false });
 
 function endTouch(e) {
   for (const t of e.changedTouches) {
     if (moveTouch && t.identifier === moveTouch.id) moveTouch = null;
-    if (aimTouch && t.identifier === aimTouch.id) {
-      const adx = aimTouch.curX - aimTouch.baseX, ady = aimTouch.curY - aimTouch.baseY;
-      if (Math.hypot(adx, ady) > JOY_DEADZONE && gameActive) {
-        shoot(player, Math.atan2(ady, adx), false);
-      }
-      aimTouch = null;
-    }
   }
 }
 canvas.addEventListener('touchend', endTouch);
@@ -767,19 +878,20 @@ function shoot(shooter, angle, isBot) {
   if (shooter.shootCooldown > 0) return;
   if (shooter === player && player.superActive) return;
 
-  const weaponDef = (!isBot && shooter.weaponDef) ? shooter.weaponDef : null;
+  const weaponDef = shooter.weaponDef || null;
   shooter.shootCooldown = shooter.shootRate * (weaponDef ? (weaponDef.cdMult || 1) : 1);
   shooter.attackAnim = 0.28;
 
-  const color = (!isBot && shooter.traits) ? shooter.traits.outfit : '#ffb74d';
-  let damage = isBot ? 8 : (shooter.baseDamage || 14);
+  const color = shooter.traits ? shooter.traits.outfit : (shooter.color || '#ffb74d');
+  let damage = shooter.baseDamage || (isBot ? 8 : 14);
   const projSpeed = 480;
   let life = 1.2;
   let finalAngle = angle;
 
-  if (!isBot && weaponDef) {
+  if (weaponDef) {
     damage = Math.round(damage * (weaponDef.dmgMult || 1));
-    const spread = (1 - shooter.precision) * 0.35;
+    const precision = shooter.precision !== undefined ? shooter.precision : 0.8;
+    const spread = (1 - precision) * 0.35;
     finalAngle = angle + (Math.random() - 0.5) * spread;
     life = ((shooter.projRange || 340) * (weaponDef.rangeMult || 1)) / projSpeed;
   }
@@ -865,8 +977,8 @@ function tryActivateSuper() {
       if (!b.alive || dist(player, b) >= radius) return;
       damageBot(b, s.dmg || 20);
       const a = angleTo(player, b);
-      b.x = clamp(b.x + Math.cos(a) * (s.knockback || 60), b.r, W - b.r);
-      b.y = clamp(b.y + Math.sin(a) * (s.knockback || 60), b.r, H - b.r);
+      b.x = clamp(b.x + Math.cos(a) * (s.knockback || 60), b.r, WORLD_W - b.r);
+      b.y = clamp(b.y + Math.sin(a) * (s.knockback || 60), b.r, WORLD_H - b.r);
     });
     player.superTimer = 0.3;
     player.superVisualDuration = 0.3;
@@ -896,21 +1008,21 @@ function update(dt) {
 
     // Puntería: si arrastras el joystick (o mantienes el ratón), apuntas tú manualmente.
     // Si no, el personaje AUTOAPUNTA solo al rival vivo más cercano.
-    // El disparo ya NO ocurre aquí — sale al soltar (ver endTouch / mouseup) o con el botón de disparo.
-    if (aimTouch) {
-      const adx = aimTouch.curX - aimTouch.baseX, ady = aimTouch.curY - aimTouch.baseY;
-      if (Math.hypot(adx, ady) > JOY_DEADZONE) {
+    // El disparo ya NO ocurre aquí — sale al soltar el botón de disparo, o con el clic del ratón.
+    if (attackTouch) {
+      const adx = attackTouch.curX - attackTouch.baseX, ady = attackTouch.curY - attackTouch.baseY;
+      if (Math.hypot(adx, ady) > FIRE_BTN_DEADZONE) {
         player.angle = Math.atan2(ady, adx);
       }
     } else if (mouseDown) {
-      player.angle = angleTo(player, mouse);
+      player.angle = angleTo(player, mouseWorld());
     } else {
       const target = findNearestTarget(player);
       if (target) player.angle = angleTo(player, target);
     }
   }
-  player.x = clamp(player.x, player.r, W - player.r);
-  player.y = clamp(player.y, player.r, H - player.r);
+  player.x = clamp(player.x, player.r, WORLD_W - player.r);
+  player.y = clamp(player.y, player.r, WORLD_H - player.r);
   if (player.shootCooldown > 0) player.shootCooldown -= dt;
   if (player.attackAnim > 0) player.attackAnim -= dt;
 
@@ -931,8 +1043,8 @@ function update(dt) {
       bots.forEach(b => { if (b._superHitCooldown > 0) b._superHitCooldown -= dt; });
     } else if (player.superEngine === 'embestida') {
       const speed = s.dashSpeed || 900;
-      player.x = clamp(player.x + Math.cos(player.dashAngle) * speed * dt, player.r, W - player.r);
-      player.y = clamp(player.y + Math.sin(player.dashAngle) * speed * dt, player.r, H - player.r);
+      player.x = clamp(player.x + Math.cos(player.dashAngle) * speed * dt, player.r, WORLD_W - player.r);
+      player.y = clamp(player.y + Math.sin(player.dashAngle) * speed * dt, player.r, WORLD_H - player.r);
       bots.forEach(b => {
         if (!b.alive || player.dashHitSet.has(b)) return;
         if (dist(player, b) < player.r + b.r) { damageBot(b, s.dmg || 18); player.dashHitSet.add(b); }
@@ -953,21 +1065,30 @@ function update(dt) {
 
   bots.forEach(bot => {
     if (!bot.alive) {
-      bot.respawnTimer -= dt;
-      if (bot.respawnTimer <= 0) Object.assign(bot, spawnBot());
+      if (gameMode === 'arena') {
+        bot.respawnTimer -= dt;
+        if (bot.respawnTimer <= 0) Object.assign(bot, spawnBot());
+      }
+      // en Supervivencia los bots NO reaparecen: se quedan eliminados
       return;
     }
-    const d = dist(bot, player);
-    bot.angle = angleTo(bot, player);
+    const target = findBotTarget(bot);
+    if (!target) { bot.moving = false; return; }
+    const d = dist(bot, target);
+    bot.angle = angleTo(bot, target);
     bot.moving = false;
-    if (d > bot.range * 0.6) { bot.x += Math.cos(bot.angle) * bot.speed * dt; bot.y += Math.sin(bot.angle) * bot.speed * dt; bot.moving = true; }
-    else if (d < bot.range * 0.35) { bot.x -= Math.cos(bot.angle) * bot.speed * 0.6 * dt; bot.y -= Math.sin(bot.angle) * bot.speed * 0.6 * dt; bot.moving = true; }
+    if (d > bot.projRange * 0.6) { bot.x += Math.cos(bot.angle) * bot.speed * dt; bot.y += Math.sin(bot.angle) * bot.speed * dt; bot.moving = true; }
+    else if (d < bot.projRange * 0.35) { bot.x -= Math.cos(bot.angle) * bot.speed * 0.6 * dt; bot.y -= Math.sin(bot.angle) * bot.speed * 0.6 * dt; bot.moving = true; }
     if (bot.moving) bot.walkPhase += dt * 11;
-    bot.x = clamp(bot.x, bot.r, W - bot.r); bot.y = clamp(bot.y, bot.r, H - bot.r);
+    bot.x = clamp(bot.x, bot.r, WORLD_W - bot.r); bot.y = clamp(bot.y, bot.r, WORLD_H - bot.r);
     if (bot.shootCooldown > 0) bot.shootCooldown -= dt;
     if (bot.attackAnim > 0) bot.attackAnim -= dt;
-    if (d < bot.range && bot.shootCooldown <= 0 && player.alive) shoot(bot, bot.angle, true);
+    if (d < bot.projRange && bot.shootCooldown <= 0) shoot(bot, bot.angle, true);
   });
+
+  // Cámara: en Supervivencia sigue al jugador por el mapa grande; en Arena, fija (mundo = lienzo)
+  camera.x = clamp(player.x - W / 2, 0, Math.max(0, WORLD_W - W));
+  camera.y = clamp(player.y - H / 2, 0, Math.max(0, WORLD_H - H));
 
   for (let i = projectiles.length - 1; i >= 0; i--) {
     const p = projectiles[i];
@@ -976,31 +1097,36 @@ function update(dt) {
     p.life -= dt; p.spin += dt * 25;
     let remove = false;
 
-    if (p.owner === 'player') {
-      bots.forEach(b => {
-        if (!b.alive || p.hitSet.has(b)) return;
-        if (dist(p, b) < b.r) {
-          damageBot(b, p.damage);
-          player.superCharge = Math.min(player.superMax, player.superCharge + 1);
-          p.hitSet.add(b);
-          if (p.engine === 'perforante') {
-            if (p.pierceLeft > 0) p.pierceLeft--; else remove = true;
-          } else if (p.engine === 'bumeran') {
-            // no se elimina: puede seguir golpeando a otros de camino
-          } else {
-            remove = true;
-          }
+    // Colisión genérica: cualquier proyectil puede golpear a cualquiera excepto a quien lo disparó
+    // (esto es lo que permite que, en Supervivencia, los bots se hagan daño entre ellos)
+    const candidates = [player, ...bots].filter(e => e !== p.ownerRef && e.alive);
+    candidates.forEach(e => {
+      if (p.hitSet.has(e)) return;
+      if (e === player && player.superActive) return; // invulnerable durante su propio super
+      if (dist(p, e) < e.r) {
+        if (e === player) damagePlayer(p.damage); else damageBot(e, p.damage);
+        if (p.ownerRef === player) player.superCharge = Math.min(player.superMax, player.superCharge + 1);
+        p.hitSet.add(e);
+        if (p.engine === 'perforante') {
+          if (p.pierceLeft > 0) p.pierceLeft--; else remove = true;
+        } else if (p.engine === 'bumeran') {
+          // no se elimina: puede seguir golpeando a otros de camino
+        } else {
+          remove = true;
         }
-      });
-    } else {
-      if (player.alive && !player.superActive && dist(p, player) < player.r) { damagePlayer(p.damage); remove = true; }
-    }
+      }
+    });
 
-    const outOfBounds = p.x < 0 || p.x > W || p.y < 0 || p.y > H;
+    const outOfBounds = p.x < 0 || p.x > WORLD_W || p.y < 0 || p.y > WORLD_H;
     const lifeOver = p.life <= 0;
 
     if (!remove && p.engine === 'lanzada' && (lifeOver || outOfBounds)) {
-      bots.forEach(b => { if (b.alive && dist(p, b) < (p.aoeRadius || 55)) damageBot(b, Math.round(p.damage * 0.7)); });
+      const aoeCandidates = [player, ...bots].filter(e => e !== p.ownerRef && e.alive);
+      aoeCandidates.forEach(e => {
+        if (dist(p, e) < (p.aoeRadius || 55)) {
+          if (e === player) damagePlayer(Math.round(p.damage * 0.7)); else damageBot(e, Math.round(p.damage * 0.7));
+        }
+      });
       remove = true;
     } else if (!remove && p.engine === 'bumeran' && lifeOver && p.phase === 'out') {
       p.phase = 'back';
@@ -1019,9 +1145,19 @@ function update(dt) {
 function damageBot(bot, dmg) {
   bot.hp -= dmg;
   if (bot.hp <= 0 && bot.alive) {
-    bot.alive = false; bot.respawnTimer = 2.2; kills++;
-    document.getElementById('kills').textContent = kills;
-    flashMessage('¡Rival derrotado!', 700);
+    bot.alive = false; bot.respawnTimer = 2.2;
+    if (gameMode === 'arena') {
+      kills++;
+      document.getElementById('kills').textContent = kills;
+      flashMessage('¡Rival derrotado!', 700);
+      if (kills >= TARGET_KILLS) endMatch(true);
+    } else {
+      flashMessage('¡Un rival ha caído!', 700);
+      const alive = bots.filter(b => b.alive).length;
+      const killsEl = document.getElementById('kills');
+      if (killsEl) killsEl.textContent = alive;
+      if (alive === 0) endMatch(true); // último en pie
+    }
   }
 }
 function damagePlayer(dmg) {
@@ -1032,8 +1168,13 @@ function damagePlayer(dmg) {
   triggerFlash('#ff0000');
   if (player.hp <= 0 && player.alive) {
     player.alive = false;
-    flashMessage('Has caído... reapareciendo', 1500);
-    setTimeout(() => { player.hp = player.maxHp; player.x = W / 2; player.y = H / 2; player.alive = true; }, 1500);
+    if (gameMode === 'arena') {
+      flashMessage('Has caído... reapareciendo', 1500);
+      setTimeout(() => { player.hp = player.maxHp; player.x = W / 2; player.y = H / 2; player.alive = true; }, 1500);
+    } else {
+      flashMessage('Has caído...', 1200);
+      setTimeout(() => endMatch(false), 1200); // en Supervivencia no hay segundas oportunidades
+    }
   }
 }
 let msgTimeout = null;
@@ -1058,10 +1199,12 @@ function updateHUD() {
 }
 
 function drawArena() {
-  ctx.fillStyle = '#3c5a34'; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = '#3c5a34'; ctx.fillRect(camera.x, camera.y, W, H);
   ctx.strokeStyle = 'rgba(0,0,0,0.05)';
-  for (let x = 0; x < W; x += 40) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+  const gridStart = Math.floor(camera.x / 40) * 40;
+  for (let x = gridStart; x < camera.x + W; x += 40) { ctx.beginPath(); ctx.moveTo(x, camera.y); ctx.lineTo(x, camera.y + H); ctx.stroke(); }
   obstacles.forEach(o => {
+    if (o.x < camera.x - 40 || o.x > camera.x + W + 40 || o.y < camera.y - 40 || o.y > camera.y + H + 40) return; // fuera de vista, no lo pintamos
     if (o.type === 'tree') {
       ctx.fillStyle = '#2e4a24'; ctx.beginPath(); ctx.arc(o.x, o.y, o.r, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = '#5b3a24'; ctx.fillRect(o.x - 4, o.y + o.r - 6, 8, 12);
@@ -1207,15 +1350,38 @@ function drawPlayerTopDown(p, isSpinning) {
 }
 
 function drawBot(b) {
-  drawLegs(b, '#3a1712');
+  drawLegs(b, '#2c2016');
   ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(b.angle);
   const attackProgress = b.attackAnim > 0 ? (0.28 - b.attackAnim) / 0.28 : 1;
   const attackSwing = b.attackAnim > 0 ? Math.sin(attackProgress * Math.PI) * 0.7 : 0;
-  ctx.save(); ctx.rotate(0.25 - attackSwing);
-  ctx.fillStyle = b.color; ctx.fillRect(b.r - 2, -3, 12, 6); ctx.restore();
+  const wDef = b.weaponDef || { visual: 'hoja', color: '#c9c9c9' };
+
+  ctx.save();
+  ctx.rotate(0.25 - attackSwing);
+  ctx.fillStyle = b.color; ctx.fillRect(b.r - 2, -3, 12, 6);
+  ctx.translate(b.r + 10, 0);
+  if (wDef.visual === 'punos') {
+    ctx.fillStyle = wDef.color || '#ffd54f';
+    ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI * 2); ctx.fill();
+  } else if (wDef.visual === 'orbe') {
+    ctx.fillStyle = wDef.color || '#8ad8f0'; ctx.shadowColor = wDef.color; ctx.shadowBlur = 8;
+    ctx.beginPath(); ctx.arc(0, 0, 7, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
+  } else if (wDef.visual === 'bomba') {
+    ctx.fillStyle = wDef.color || '#556b2f';
+    ctx.beginPath(); ctx.arc(0, 0, 7, 0, Math.PI * 2); ctx.fill();
+  } else if (wDef.visual === 'disco') {
+    ctx.fillStyle = wDef.color || '#c9c9c9';
+    ctx.beginPath(); ctx.arc(0, 0, 7, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.lineWidth = 2; ctx.stroke();
+  } else {
+    ctx.fillStyle = wDef.color || '#c9c9c9';
+    ctx.beginPath(); ctx.moveTo(-4, -8); ctx.lineTo(10, -3); ctx.lineTo(10, 3); ctx.lineTo(-4, 8); ctx.closePath(); ctx.fill();
+  }
+  ctx.restore();
+
   ctx.fillStyle = b.color; ctx.beginPath(); ctx.arc(0, 0, b.r, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = '#5c1c17'; ctx.lineWidth = 2; ctx.stroke();
-  ctx.fillStyle = '#ffe0b2'; ctx.beginPath(); ctx.arc(b.r * 0.4, 0, 5, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = 2; ctx.stroke();
+  ctx.fillStyle = '#e8b98a'; ctx.beginPath(); ctx.arc(b.r * 0.4, 0, 5, 0, Math.PI * 2); ctx.fill();
   ctx.restore();
 }
 
@@ -1249,6 +1415,8 @@ function drawProjectile(p) {
 }
 
 function draw() {
+  ctx.save();
+  ctx.translate(-camera.x, -camera.y);
   drawArena();
   bots.forEach(b => { if (b.alive) { drawBot(b); drawHealthBar(b); } });
   if (player.alive) {
@@ -1257,13 +1425,29 @@ function draw() {
     drawHealthBar(player, 50);
   }
   projectiles.forEach(drawProjectile);
+  ctx.restore();
 
+  // Los joysticks se dibujan en espacio de pantalla, no de mundo — por eso van fuera del translate
   drawJoystick(moveTouch, '#ffffff');
-  drawJoystick(aimTouch, '#4fd8f0');
 }
 
 let gameActive = false;
-function startMatch(savedTraits, fusion) {
+let matchStartTime = 0;
+function startMatch(savedTraits, fusion, mode) {
+  gameMode = mode || 'arena';
+
+  if (gameMode === 'survival') {
+    WORLD_W = W * 3; WORLD_H = H * 3;
+    obstacles = generateObstacles(WORLD_W, WORLD_H, 45);
+    bots = Array.from({ length: 11 }, () => spawnBot());
+    document.getElementById('scoreBoard').textContent = '';
+  } else {
+    WORLD_W = W; WORLD_H = H;
+    obstacles = generateObstacles(WORLD_W, WORLD_H, 10);
+    bots = [spawnBot(), spawnBot()];
+  }
+  camera.x = 0; camera.y = 0;
+
   player.traits = savedTraits;
   player.fusion = fusion;
   player.weaponDef = fusion.weapon;
@@ -1275,14 +1459,44 @@ function startMatch(savedTraits, fusion) {
   player.baseDamage = fusion.dmg;
   player.precision = fusion.precision / 100;
   player.projRange = fusion.range;
-  player.x = W / 2; player.y = H / 2;
+  player.x = WORLD_W / 2; player.y = WORLD_H / 2;
   player.superCharge = 0; player.superActive = false; player.superEngine = null; player.alive = true;
+  kills = 0;
+  projectiles.length = 0;
+  matchStartTime = performance.now();
   const fusionNames = fusion.picks.map(p => p.name).join(' + ');
-  document.getElementById('gameTitle').textContent = `🪓 HEROIC GUARDIANS — ${savedTraits.name}`;
+  const modeLabel = gameMode === 'survival' ? '🏆 Supervivencia' : '⚔️ Arena';
+  document.getElementById('gameTitle').textContent = `🪓 HEROIC GUARDIANS — ${savedTraits.name} · ${modeLabel}`;
   document.getElementById('gameSubtitle').textContent = `Fusión ${fusion.rarity}: ${fusionNames} · Alcance ${fusion.rangeLabel} · ${fusion.weapon.name} · Super: ${fusion.superDef.name}`;
+  document.getElementById('scoreBoard').innerHTML = gameMode === 'survival'
+    ? `Rivales vivos: <span id="kills">${bots.length}</span>`
+    : `Rivales derrotados: <span id="kills">0</span> / <span id="killTarget">${TARGET_KILLS}</span>`;
   gameActive = true;
   showScreen('gameScreen');
 }
+
+function endMatch(won) {
+  gameActive = false;
+  const elapsed = ((performance.now() - matchStartTime) / 1000).toFixed(1);
+  document.getElementById('endTitle').textContent = won ? '¡Victoria!' : 'Has caído';
+  document.getElementById('endSubtitle').textContent = won
+    ? (gameMode === 'survival' ? 'Has sido el último en pie' : 'Has derrotado a suficientes rivales')
+    : 'Tu Fusión no ha sobrevivido esta vez';
+  const survivorsLeft = bots.filter(b => b.alive).length;
+  document.getElementById('endStats').innerHTML = `
+    <div><div class="fusion-stat-label">${gameMode === 'survival' ? 'Rivales eliminados' : 'Rivales derrotados'}</div><div class="fusion-stat-value">${gameMode === 'survival' ? (bots.length - survivorsLeft) : kills}</div></div>
+    <div><div class="fusion-stat-label">Tiempo de partida</div><div class="fusion-stat-value">${elapsed}s</div></div>
+    <div style="grid-column: 1 / -1;"><div class="fusion-stat-label">Tu Fusión</div><div class="fusion-stat-value">${player.fusion.rarity}: ${player.fusion.picks.map(p => p.name).join(' + ')}</div></div>
+  `;
+  showScreen('matchEndScreen');
+}
+
+document.getElementById('playAgainBtn').addEventListener('click', () => {
+  startFusionFlow(gameMode);
+});
+document.getElementById('backToMenuBtn').addEventListener('click', () => {
+  showScreen('welcomeBack');
+});
 
 let last = performance.now();
 function loop(now) {
