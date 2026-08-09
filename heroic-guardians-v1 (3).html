@@ -170,6 +170,15 @@
   #scoreBoard { position: absolute; top: 10px; right: 14px; text-align: right; text-shadow: 1px 1px 2px #000; font-size: 15px; }
   #centerMsg { position: absolute; top: 45%; left: 50%; transform: translate(-50%, -50%); font-size: 40px; font-weight: bold; text-shadow: 2px 2px 4px #000; color: #ffeb3b; pointer-events: none; display: none; }
   #instructions { position: absolute; bottom: 10px; left: 10px; font-size: 12px; background: rgba(0,0,0,0.45); padding: 8px 12px; border-radius: 8px; line-height: 1.5; max-width: 260px; }
+  #touchFireBtn {
+    position: absolute; bottom: 16px; right: 128px; z-index: 20;
+    background: linear-gradient(180deg, #4fd8f0, #1e90c9);
+    color: #06202b; font-weight: 800; letter-spacing: 0.5px;
+    border: none; border-radius: 999px; padding: 16px 18px;
+    font-size: 13px; box-shadow: 0 4px 14px -2px rgba(79,216,240,0.6);
+    cursor: pointer; touch-action: manipulation; opacity: 0.9;
+  }
+  #touchFireBtn:active { transform: scale(0.94); }
   #touchSuperBtn {
     position: absolute; bottom: 16px; right: 16px; z-index: 20;
     background: linear-gradient(180deg, #6b6b6b, #4a4a4a);
@@ -255,9 +264,11 @@
     <div id="scoreBoard">Rivales derrotados: <span id="kills">0</span></div>
     <div id="centerMsg"></div>
     <div id="instructions">
-      <b>Teclado/ratón:</b> WASD mover · pulsa y suelta el ratón para apuntar y disparar · Espacio super<br>
-      <b>Táctil:</b> joystick izq. mover · joystick der. apunta y suelta para disparar · botón ⚡ super
+      <b>Autoapuntado activo:</b> el personaje apunta solo al rival más cercano<br>
+      <b>Teclado/ratón:</b> WASD mover · botón 🎯 o clic disparar · mantén el ratón para apuntar manualmente · Espacio super<br>
+      <b>Táctil:</b> joystick izq. mover · botón 🎯 disparar · joystick der. para apuntar manualmente · botón ⚡ super
     </div>
+    <button id="touchFireBtn">🎯 DISPARAR</button>
     <button id="touchSuperBtn">⚡ SUPER</button>
   </div>
 </div>
@@ -475,6 +486,15 @@ function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
 function angleTo(a, b) { return Math.atan2(b.y - a.y, b.x - a.x); }
 function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
 function rand(min, max) { return min + Math.random() * (max - min); }
+function findNearestTarget(from) {
+  let best = null, bestDist = Infinity;
+  bots.forEach(b => {
+    if (!b.alive) return;
+    const d = dist(from, b);
+    if (d < bestDist) { bestDist = d; best = b; }
+  });
+  return best;
+}
 
 // ---------- ROSTER DE 48 PERSONAJES BASE Y MOTOR DE FUSIÓN ----------
 // Código de arquetipo: (Inteligencia · Fuerza · Velocidad), + = Alta, - = Baja
@@ -656,6 +676,17 @@ document.getElementById('touchSuperBtn').addEventListener('touchend', e => {
   e.preventDefault();
   e.stopPropagation();
   tryActivateSuper();
+}, { passive: false });
+
+function fireAtCurrentTarget() {
+  if (!gameActive || !player.alive) return;
+  shoot(player, player.angle, false);
+}
+document.getElementById('touchFireBtn').addEventListener('click', fireAtCurrentTarget);
+document.getElementById('touchFireBtn').addEventListener('touchend', e => {
+  e.preventDefault();
+  e.stopPropagation();
+  fireAtCurrentTarget();
 }, { passive: false });
 
 // ---------- CONTROLES TÁCTILES (dos joysticks virtuales) ----------
@@ -863,15 +894,19 @@ function update(dt) {
       player.moving = true; player.walkPhase += dt * 11;
     } else { player.moving = false; }
 
-    // Puntería: joystick táctil de apuntado tiene prioridad, si no, el ratón.
-    // El disparo ya NO ocurre aquí — sale al soltar (ver endTouch / mouseup).
+    // Puntería: si arrastras el joystick (o mantienes el ratón), apuntas tú manualmente.
+    // Si no, el personaje AUTOAPUNTA solo al rival vivo más cercano.
+    // El disparo ya NO ocurre aquí — sale al soltar (ver endTouch / mouseup) o con el botón de disparo.
     if (aimTouch) {
       const adx = aimTouch.curX - aimTouch.baseX, ady = aimTouch.curY - aimTouch.baseY;
       if (Math.hypot(adx, ady) > JOY_DEADZONE) {
         player.angle = Math.atan2(ady, adx);
       }
-    } else {
+    } else if (mouseDown) {
       player.angle = angleTo(player, mouse);
+    } else {
+      const target = findNearestTarget(player);
+      if (target) player.angle = angleTo(player, target);
     }
   }
   player.x = clamp(player.x, player.r, W - player.r);
