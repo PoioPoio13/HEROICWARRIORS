@@ -181,6 +181,11 @@
   #reloadText { font-size: 11px; color: #8adfff; }
   #superText { font-weight: bold; font-size: 14px; color: #ffd54f; height: 18px; }
   #scoreBoard { position: absolute; top: 10px; right: 14px; text-align: right; text-shadow: 1px 1px 2px #000; font-size: 15px; }
+  #muteBtn {
+    position: absolute; top: 38px; right: 14px; z-index: 20;
+    background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.2); border-radius: 8px;
+    color: #fff; font-size: 15px; padding: 4px 8px; cursor: pointer;
+  }
   #centerMsg { position: absolute; top: 45%; left: 50%; transform: translate(-50%, -50%); font-size: 40px; font-weight: bold; text-shadow: 2px 2px 4px #000; color: #ffeb3b; pointer-events: none; display: none; }
   #instructions { position: absolute; bottom: 10px; left: 10px; font-size: 12px; background: rgba(0,0,0,0.45); padding: 8px 12px; border-radius: 8px; line-height: 1.5; max-width: 260px; }
   #touchFireBtn {
@@ -299,6 +304,7 @@
       <div class="barBg"><div id="superFill" class="barFill"></div></div>
     </div>
     <div id="scoreBoard">Rivales derrotados: <span id="kills">0</span> / <span id="killTarget">10</span></div>
+    <button id="muteBtn">🔊</button>
     <div id="centerMsg"></div>
     <div id="instructions">
       <b>Autoapuntado activo:</b> el personaje apunta solo al rival más cercano<br>
@@ -454,6 +460,7 @@ function showScreen(id) {
 }
 
 document.getElementById('confirmBtn').addEventListener('click', () => {
+  initAudio(); playSfx('click');
   if (!traits.name || !traits.name.trim()) traits.name = 'Rook';
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(traits)); }
   catch (e) { console.warn('No se pudo guardar en localStorage (normal en la vista previa del chat):', e); }
@@ -465,8 +472,10 @@ const RARITY_COLORS = { 'Común':'#9a9aa5', 'Rara':'#4fa8e0', 'Épica':'#8b7cf5'
 let currentFusion = null;
 
 document.getElementById('playBtn').addEventListener('click', () => {
+  initAudio(); playSfx('click');
   showScreen('modeSelectScreen');
 });
+document.getElementById('muteBtn').addEventListener('click', toggleMute);
 
 let selectedMode = 'arena';
 function startFusionFlow(mode) {
@@ -512,10 +521,11 @@ function startFusionFlow(mode) {
   showScreen('fusionScreen');
 }
 
-document.getElementById('modeArenaBtn').addEventListener('click', () => startFusionFlow('arena'));
-document.getElementById('modeSurvivalBtn').addEventListener('click', () => startFusionFlow('survival'));
+document.getElementById('modeArenaBtn').addEventListener('click', () => { initAudio(); playSfx('click'); startFusionFlow('arena'); });
+document.getElementById('modeSurvivalBtn').addEventListener('click', () => { initAudio(); playSfx('click'); startFusionFlow('survival'); });
 
 document.getElementById('enterArenaBtn').addEventListener('click', () => {
+  initAudio(); playSfx('click');
   const saved = loadSavedTraits() || traits;
   startMatch(saved, currentFusion, selectedMode);
 });
@@ -546,6 +556,89 @@ function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
 function angleTo(a, b) { return Math.atan2(b.y - a.y, b.x - a.x); }
 function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
 function rand(min, max) { return min + Math.random() * (max - min); }
+
+// ---------- AUDIO (sintetizado por código, sin archivos externos) ----------
+let audioCtx = null, masterGain = null, musicGain = null, sfxGain = null;
+let musicPlaying = false, musicTimer = null, audioMuted = false;
+
+function initAudio() {
+  if (audioCtx) {
+    if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+    return;
+  }
+  try {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    masterGain = audioCtx.createGain(); masterGain.gain.value = 0.55; masterGain.connect(audioCtx.destination);
+    musicGain = audioCtx.createGain(); musicGain.gain.value = 0.2; musicGain.connect(masterGain);
+    sfxGain = audioCtx.createGain(); sfxGain.gain.value = 0.8; sfxGain.connect(masterGain);
+    if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+  } catch (e) { console.warn('Audio no disponible:', e); }
+}
+
+function tone(freq, duration, type, bus, startTime, vol) {
+  if (!audioCtx || audioMuted) return;
+  const osc = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  osc.type = type || 'square';
+  osc.frequency.value = freq;
+  g.gain.setValueAtTime(0.0001, startTime);
+  g.gain.linearRampToValueAtTime(vol || 0.25, startTime + 0.012);
+  g.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+  osc.connect(g); g.connect(bus);
+  osc.start(startTime); osc.stop(startTime + duration + 0.03);
+}
+
+function playSfx(type) {
+  if (!audioCtx || audioMuted) return;
+  const t = audioCtx.currentTime;
+  if (type === 'shoot') tone(680, 0.07, 'square', sfxGain, t, 0.22);
+  else if (type === 'shootHeavy') tone(200, 0.16, 'sawtooth', sfxGain, t, 0.3);
+  else if (type === 'shootMagic') { tone(880, 0.1, 'sine', sfxGain, t, 0.18); tone(1320, 0.12, 'sine', sfxGain, t + 0.03, 0.14); }
+  else if (type === 'shootMelee') tone(320, 0.06, 'square', sfxGain, t, 0.25);
+  else if (type === 'hit') tone(170, 0.07, 'square', sfxGain, t, 0.22);
+  else if (type === 'botDeath') { tone(440, 0.1, 'sawtooth', sfxGain, t, 0.28); tone(220, 0.16, 'sawtooth', sfxGain, t + 0.08, 0.24); }
+  else if (type === 'super') { [523, 659, 784, 1046].forEach((f, i) => tone(f, 0.13, 'square', sfxGain, t + i * 0.06, 0.28)); }
+  else if (type === 'damage') tone(140, 0.13, 'sawtooth', sfxGain, t, 0.3);
+  else if (type === 'click') tone(900, 0.045, 'square', sfxGain, t, 0.14);
+  else if (type === 'victory') { [523, 659, 784, 1046, 1318].forEach((f, i) => tone(f, 0.2, 'square', sfxGain, t + i * 0.12, 0.28)); }
+  else if (type === 'defeat') { [392, 349, 311, 262].forEach((f, i) => tone(f, 0.26, 'sawtooth', sfxGain, t + i * 0.15, 0.28)); }
+}
+function playShootSfx(visual) {
+  if (visual === 'orbe') playSfx('shootMagic');
+  else if (visual === 'bomba') playSfx('shootHeavy');
+  else if (visual === 'punos') playSfx('shootMelee');
+  else playSfx('shoot');
+}
+
+// Riff original de 12 notas, pensado para pegarse y repetirse sin cansar (bucle ~3s)
+const MELODY = [
+  { f: 523, d: 0.22 }, { f: 659, d: 0.22 }, { f: 784, d: 0.22 }, { f: 659, d: 0.22 },
+  { f: 523, d: 0.22 }, { f: 784, d: 0.22 }, { f: 988, d: 0.32 }, { f: 784, d: 0.32 },
+  { f: 659, d: 0.22 }, { f: 523, d: 0.22 }, { f: 587, d: 0.22 }, { f: 659, d: 0.42 }
+];
+function scheduleMelody(startTime) {
+  let t = startTime;
+  MELODY.forEach(n => { tone(n.f, n.d * 0.88, 'triangle', musicGain, t, 0.2); t += n.d; });
+  return t - startTime;
+}
+function startMusic() {
+  if (!audioCtx || audioMuted || musicPlaying) return;
+  musicPlaying = true;
+  const loop = () => {
+    if (!musicPlaying) return;
+    const dur = scheduleMelody(audioCtx.currentTime + 0.05);
+    musicTimer = setTimeout(loop, dur * 1000);
+  };
+  loop();
+}
+function stopMusic() { musicPlaying = false; if (musicTimer) clearTimeout(musicTimer); }
+function toggleMute() {
+  audioMuted = !audioMuted;
+  const btn = document.getElementById('muteBtn');
+  if (btn) btn.textContent = audioMuted ? '🔇' : '🔊';
+  if (audioMuted) stopMusic(); else if (gameActive) startMusic();
+}
+
 function findNearestTarget(from) {
   let best = null, bestDist = Infinity;
   bots.forEach(b => {
@@ -881,6 +974,7 @@ function shoot(shooter, angle, isBot) {
   const weaponDef = shooter.weaponDef || null;
   shooter.shootCooldown = shooter.shootRate * (weaponDef ? (weaponDef.cdMult || 1) : 1);
   shooter.attackAnim = 0.28;
+  if (shooter === player) playShootSfx(weaponDef ? weaponDef.visual : 'hoja');
 
   const color = shooter.traits ? shooter.traits.outfit : (shooter.color || '#ffb74d');
   let damage = shooter.baseDamage || (isBot ? 8 : 14);
@@ -949,6 +1043,7 @@ function triggerFlash(color) {
 
 function tryActivateSuper() {
   if (player.superCharge < player.superMax || player.superActive) return;
+  playSfx('super');
   const s = player.superDef || SUPERS[0];
   player.superActive = true;
   player.superCharge = 0;
@@ -1105,6 +1200,7 @@ function update(dt) {
       if (e === player && player.superActive) return; // invulnerable durante su propio super
       if (dist(p, e) < e.r) {
         if (e === player) damagePlayer(p.damage); else damageBot(e, p.damage);
+        if (e === player || p.ownerRef === player) playSfx('hit');
         if (p.ownerRef === player) player.superCharge = Math.min(player.superMax, player.superCharge + 1);
         p.hitSet.add(e);
         if (p.engine === 'perforante') {
@@ -1146,6 +1242,7 @@ function damageBot(bot, dmg) {
   bot.hp -= dmg;
   if (bot.hp <= 0 && bot.alive) {
     bot.alive = false; bot.respawnTimer = 2.2;
+    playSfx('botDeath');
     if (gameMode === 'arena') {
       kills++;
       document.getElementById('kills').textContent = kills;
@@ -1166,6 +1263,7 @@ function damagePlayer(dmg) {
   }
   player.hp -= dmg;
   triggerFlash('#ff0000');
+  playSfx('damage');
   if (player.hp <= 0 && player.alive) {
     player.alive = false;
     if (gameMode === 'arena') {
@@ -1473,10 +1571,13 @@ function startMatch(savedTraits, fusion, mode) {
     : `Rivales derrotados: <span id="kills">0</span> / <span id="killTarget">${TARGET_KILLS}</span>`;
   gameActive = true;
   showScreen('gameScreen');
+  startMusic();
 }
 
 function endMatch(won) {
   gameActive = false;
+  stopMusic();
+  playSfx(won ? 'victory' : 'defeat');
   const elapsed = ((performance.now() - matchStartTime) / 1000).toFixed(1);
   document.getElementById('endTitle').textContent = won ? '¡Victoria!' : 'Has caído';
   document.getElementById('endSubtitle').textContent = won
