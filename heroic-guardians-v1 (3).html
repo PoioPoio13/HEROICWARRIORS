@@ -220,9 +220,278 @@
   }
   @keyframes superPulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.08); } }
   #touchSuperBtn:active { transform: scale(0.92); }
+  /* ===== PANTALLA: FORJANDO LA FUSIÓN (carga) ===== */
+  .loading-stage {
+    position: relative;
+    width: 100%; height: 100vh; min-height: 560px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background:
+      radial-gradient(ellipse 900px 500px at 50% 38%, rgba(232,130,58,0.10), transparent 65%),
+      radial-gradient(ellipse 1200px 700px at 50% 100%, rgba(139,124,245,0.06), transparent 60%),
+      var(--bg);
+    overflow: hidden;
+  }
+  .axe-wrap {
+    position: absolute; top: 50%; left: 50%;
+    width: 480px; height: 480px;
+    transform: translate(-50%, -54%);
+    opacity: 0.16; pointer-events: none;
+  }
+  .axe-wrap svg { width: 100%; height: 100%; }
+  .seam {
+    stroke: var(--accent); stroke-width: 3; fill: none; stroke-linecap: round;
+    filter: drop-shadow(0 0 8px var(--accent));
+    stroke-dasharray: 4 10;
+    animation: seamPulse 2.6s ease-in-out infinite;
+  }
+  @keyframes seamPulse { 0%,100% { opacity: 0.35; stroke-width: 2.5; } 50% { opacity: 1; stroke-width: 4; } }
+  .loading-wordmark { position: relative; z-index: 2; text-align: center; margin-bottom: 36px; }
+  .loading-wordmark h1 {
+    margin: 0; font-family: "Arial Black", "Franklin Gothic Bold", Haettenschweiler, sans-serif;
+    font-size: clamp(28px, 6vw, 46px); letter-spacing: 4px; color: var(--ink); text-transform: uppercase;
+    background: linear-gradient(180deg, #fff7ec 0%, var(--accent) 120%);
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+    text-shadow: 0 0 40px rgba(232,130,58,0.35);
+  }
+  .loading-sub { margin-top: 8px; font-size: 12px; letter-spacing: 3px; text-transform: uppercase; color: var(--ink-dim); }
+  .loading-badges { position: relative; z-index: 2; display: flex; align-items: flex-end; gap: 18px; margin-bottom: 40px; }
+  .loading-badge { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .loading-badge-ring { position: relative; width: 78px; height: 78px; }
+  .loading-badge-ring::before {
+    content: ""; position: absolute; inset: -5px; border-radius: 50%;
+    background: conic-gradient(var(--badge-c) 0deg, transparent 0deg);
+    animation: loadingChargeSpin 1.8s linear infinite;
+    -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 4px));
+            mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 4px));
+  }
+  @keyframes loadingChargeSpin {
+    0% { background: conic-gradient(var(--badge-c) 0deg, transparent 0deg); }
+    70%,100% { background: conic-gradient(var(--badge-c) 360deg, transparent 360deg); }
+  }
+  .loading-badge-icon {
+    position: absolute; inset: 0; border-radius: 50%; overflow: hidden;
+    background: var(--panel-2); border: 2px solid var(--badge-c);
+    box-shadow: 0 0 18px -2px var(--badge-c), inset 0 0 14px -6px var(--badge-c);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 9px; text-align: center; padding: 4px; color: var(--ink-dim);
+  }
+  .loading-badge-icon img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .loading-badge-name { font-size: 11px; letter-spacing: 0.5px; color: var(--ink); text-align: center; max-width: 90px; }
+  .loading-progress-wrap { position: relative; z-index: 2; width: min(320px, 80vw); }
+  .loading-progress-track { width: 100%; height: 6px; border-radius: 999px; background: rgba(255,255,255,0.08); overflow: hidden; }
+  .loading-progress-fill { height: 100%; width: 0%; border-radius: 999px; background: linear-gradient(90deg, var(--accent), #ffd54f); transition: width 1.7s cubic-bezier(.3,0,.2,1); }
+  /* ===== PANTALLA 0: BIENVENIDA CYBERPUNK ===== */
+  #introScreen {
+    --cyan: #4fd8f0; --magenta: #d84fd8; --grom: #e8823a; --vex: #8b7cf5;
+    --cinder: #ff6a3d; --selene: #4fd8f0; --zip: #3ed17a; --intro-ink: #f4f7fa;
+    position: relative; overflow: hidden;
+    background: linear-gradient(180deg, #120a24 0%, #23163f 35%, #3a2050 60%, #4a2440 100%);
+  }
+  #introScreen .skyline {
+    position: absolute; left: 0; right: 0; bottom: 78px; height: 42%;
+    background: linear-gradient(0deg, #0a0713 0%, rgba(10,7,19,0) 100%);
+  }
+  #introScreen .skyline::before {
+    content: ""; position: absolute; inset: 0;
+    background-image:
+      linear-gradient(#170f2a, #170f2a), linear-gradient(#170f2a, #170f2a),
+      linear-gradient(#1d1333, #1d1333), linear-gradient(#170f2a, #170f2a),
+      linear-gradient(#1d1333, #1d1333);
+    background-repeat: no-repeat;
+    background-position: 3% 40%, 18% 20%, 34% 55%, 70% 10%, 86% 35%;
+    background-size: 12% 60%, 10% 80%, 14% 45%, 11% 90%, 13% 65%;
+    opacity: 0.9;
+  }
+  #introScreen .neon-sign {
+    position: absolute; font-size: 10px; letter-spacing: 2px; font-weight: 700;
+    padding: 4px 8px; border-radius: 4px; color: var(--intro-ink); text-transform: uppercase;
+  }
+  #introScreen .neon-sign.pink { top: 14%; right: 6%; background: rgba(216,79,216,0.18); border: 1px solid var(--magenta); box-shadow: 0 0 14px var(--magenta); color: #ffd6ff; }
+  #introScreen .neon-sign.cyan { top: 4%; right: 3%; background: rgba(79,216,240,0.15); border: 1px solid var(--cyan); box-shadow: 0 0 14px var(--cyan); color: #d8f8ff; }
+  #introScreen .glow { position: absolute; border-radius: 50%; filter: blur(18px); opacity: 0.55; }
+  #introScreen .glow.g1 { width: 160px; height: 160px; left: 3%; top: 42%; background: var(--cyan); animation: introPulseGlow 2.4s ease-in-out infinite; }
+  #introScreen .glow.g2 { width: 130px; height: 130px; right: 8%; top: 30%; background: var(--zip); animation: introPulseGlow 2.8s ease-in-out infinite 0.5s; }
+  #introScreen .glow.g3 { width: 110px; height: 110px; right: 22%; top: 55%; background: var(--magenta); animation: introPulseGlow 3.2s ease-in-out infinite 1s; }
+  @keyframes introPulseGlow { 0%,100% { opacity: 0.35; transform: scale(0.9);} 50% { opacity: 0.65; transform: scale(1.08);} }
+  #introScreen .drone { position: absolute; opacity: 0.7; animation: introDrift 6s ease-in-out infinite; }
+  #introScreen .drone svg { width: 26px; height: 14px; }
+  #introScreen .drone.d1 { top: 8%; left: 40%; animation-delay: 0s; }
+  #introScreen .drone.d2 { top: 14%; left: 55%; animation-delay: 1.2s; }
+  #introScreen .drone.d3 { top: 6%; left: 68%; animation-delay: 2.1s; }
+  @keyframes introDrift { 0%,100% { transform: translateX(0); } 50% { transform: translateX(18px); } }
+  #introScreen .intro-logo { position: absolute; top: 22px; left: 24px; z-index: 5; }
+  #introScreen .intro-logo .eyebrow {
+    display: flex; align-items: center; gap: 6px; font-size: 11px; letter-spacing: 3px;
+    font-weight: 700; color: var(--cyan); text-transform: uppercase;
+  }
+  #introScreen .intro-logo .eyebrow::before { content: "\276F\276F"; color: var(--magenta); }
+  #introScreen .intro-logo h1 {
+    margin: 2px 0 0; font-size: clamp(24px, 4vw, 34px);
+    font-family: "Arial Black", "Franklin Gothic Bold", Haettenschweiler, sans-serif;
+    letter-spacing: 2px; text-transform: uppercase; color: var(--intro-ink);
+    text-shadow: 0 0 18px rgba(79,216,240,0.6), 0 0 4px #fff;
+  }
+  #introScreen .intro-logo .sub { font-size: 11px; color: var(--intro-ink); opacity: 0.65; letter-spacing: 1px; }
+  #introScreen .cast { position: absolute; inset: 0; z-index: 3; }
+  #introScreen .hero-fig { position: absolute; }
+  #introScreen .hero-fig .silhouette { fill: currentColor; }
+  #introScreen .hero-fig .glow-outline { filter: drop-shadow(0 0 10px currentColor) drop-shadow(0 0 22px currentColor); }
+  #introScreen .hero-fig .label {
+    position: absolute; left: 50%; transform: translateX(-50%);
+    font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase;
+    color: var(--intro-ink); opacity: 0.85; white-space: nowrap;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.6);
+    display: flex; align-items: center; gap: 6px; justify-content: center;
+  }
+  #introScreen .label-avatar {
+    width: 22px; height: 22px; border-radius: 50%; object-fit: cover;
+    border: 1.5px solid currentColor; box-shadow: 0 0 6px currentColor;
+  }
+  #introScreen .fig-grom { left: 50%; bottom: 92px; transform: translateX(-50%); color: var(--grom); z-index: 4; animation: introHeroBob 3s ease-in-out infinite; }
+  #introScreen .fig-grom svg { width: 190px; height: 260px; }
+  #introScreen .fig-grom .label { bottom: -18px; font-size: 12px; font-weight: 700; }
+  #introScreen .fig-vex { left: 8%; top: 14%; color: var(--vex); animation: introFlyBob 3.6s ease-in-out infinite; }
+  #introScreen .fig-vex svg { width: 110px; height: 130px; }
+  #introScreen .fig-vex .label { bottom: -16px; }
+  #introScreen .fig-cinder { left: 4%; bottom: 96px; color: var(--cinder); }
+  #introScreen .fig-cinder svg { width: 130px; height: 190px; }
+  #introScreen .fig-cinder .label { bottom: -16px; }
+  #introScreen .flame-stream {
+    position: absolute; left: -78px; bottom: 46px; width: 90px; height: 26px;
+    background: linear-gradient(90deg, transparent, var(--cyan) 40%, #fff 90%);
+    filter: blur(6px); opacity: 0.85; border-radius: 50%;
+    animation: introFlicker 0.4s ease-in-out infinite alternate;
+  }
+  @keyframes introFlicker { 0% { opacity: 0.6; transform: scaleY(0.85);} 100% { opacity: 0.95; transform: scaleY(1.1);} }
+  #introScreen .fig-selene { right: 8%; bottom: 108px; color: var(--selene); }
+  #introScreen .fig-selene svg { width: 130px; height: 190px; }
+  #introScreen .fig-selene .label { bottom: -16px; }
+  #introScreen .note-orbit { position: absolute; right: -46px; top: 6px; width: 120px; height: 120px; animation: introSpin 5s linear infinite; }
+  #introScreen .note-orbit span { position: absolute; width: 8px; height: 8px; border-radius: 50%; background: var(--selene); box-shadow: 0 0 8px var(--selene); }
+  #introScreen .note-orbit span:nth-child(1) { top: 0; left: 50%; }
+  #introScreen .note-orbit span:nth-child(2) { top: 50%; right: 0; }
+  #introScreen .note-orbit span:nth-child(3) { bottom: 0; left: 50%; }
+  #introScreen .note-orbit span:nth-child(4) { top: 50%; left: 0; }
+  @keyframes introSpin { to { transform: rotate(360deg); } }
+  #introScreen .fig-zip { right: 4%; bottom: 90px; color: var(--zip); }
+  #introScreen .fig-zip svg { width: 120px; height: 170px; }
+  #introScreen .fig-zip .label { bottom: -16px; }
+  #introScreen .skate-spark { position: absolute; bottom: 4px; left: -6px; width: 46px; height: 6px; background: linear-gradient(90deg, transparent, var(--zip)); filter: blur(2px); opacity: 0.8; }
+  @keyframes introHeroBob { 0%,100% { transform: translateX(-50%) translateY(0); } 50% { transform: translateX(-50%) translateY(-6px); } }
+  @keyframes introFlyBob { 0%,100% { transform: translateY(0) rotate(-2deg); } 50% { transform: translateY(-10px) rotate(2deg); } }
+  #introScreen .rubble {
+    position: absolute; left: 50%; bottom: 78px; transform: translateX(-50%);
+    width: 260px; height: 26px;
+    background: radial-gradient(ellipse at center, rgba(0,0,0,0.5), transparent 70%);
+    z-index: 3;
+  }
+  #introScreen .bottom-bar {
+    position: absolute; left: 0; right: 0; bottom: 0; z-index: 6;
+    padding: 10px 22px 16px;
+    background: linear-gradient(0deg, rgba(0,0,0,0.75), rgba(0,0,0,0.15));
+  }
+  #introScreen .bar-labels { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+  #introScreen .arena-name { font-size: 12.5px; letter-spacing: 1px; color: var(--intro-ink); text-transform: uppercase; font-weight: 700; }
+  #introScreen .arena-name span { color: var(--cyan); }
+  #introScreen .pct { font-size: 12.5px; color: var(--intro-ink); opacity: 0.85; letter-spacing: 0.5px; }
+  #introScreen .track { width: 100%; height: 8px; border-radius: 999px; background: rgba(255,255,255,0.1); overflow: hidden; }
+  #introScreen .fill {
+    height: 100%; border-radius: 999px; width: 4%;
+    background: linear-gradient(90deg, var(--cyan), #a9f3ff);
+    box-shadow: 0 0 12px var(--cyan);
+  }
+  @media (max-width: 640px) {
+    #introScreen .fig-grom svg { width: 130px; height: 180px; }
+    #introScreen .fig-vex, #introScreen .fig-cinder, #introScreen .fig-selene, #introScreen .fig-zip { transform: scale(0.72); }
+    #introScreen .fig-vex { top: 10%; }
+  }
 </style>
 </head>
 <body>
+
+<!-- ================= PANTALLA 0: BIENVENIDA CYBERPUNK (al entrar, una vez por sesión) ================= -->
+<div class="screen intro-screen" id="introScreen">
+  <div class="skyline"></div>
+  <div class="neon-sign cyan">HEROIC</div>
+  <div class="neon-sign pink">GUARDIANS</div>
+
+  <div class="glow g1"></div>
+  <div class="glow g2"></div>
+  <div class="glow g3"></div>
+
+  <div class="drone d1"><svg viewBox="0 0 26 14"><rect x="2" y="5" width="22" height="4" rx="2" fill="#333c4a"/><circle cx="6" cy="7" r="3" fill="#4fd8f0" opacity="0.7"/><circle cx="20" cy="7" r="3" fill="#d84fd8" opacity="0.7"/></svg></div>
+  <div class="drone d2"><svg viewBox="0 0 26 14"><rect x="2" y="5" width="22" height="4" rx="2" fill="#333c4a"/><circle cx="6" cy="7" r="3" fill="#4fd8f0" opacity="0.7"/><circle cx="20" cy="7" r="3" fill="#d84fd8" opacity="0.7"/></svg></div>
+  <div class="drone d3"><svg viewBox="0 0 26 14"><rect x="2" y="5" width="22" height="4" rx="2" fill="#333c4a"/><circle cx="6" cy="7" r="3" fill="#4fd8f0" opacity="0.7"/><circle cx="20" cy="7" r="3" fill="#d84fd8" opacity="0.7"/></svg></div>
+
+  <div class="intro-logo">
+    <div class="eyebrow">Chrono-Arena 3v3</div>
+    <h1>Heroic Guardians</h1>
+    <div class="sub">Sistema de Fusión activo</div>
+  </div>
+
+  <div class="cast">
+    <div class="hero-fig fig-vex">
+      <svg viewBox="0 0 100 120" class="glow-outline">
+        <path class="silhouette" d="M50 20c-14-10-30-6-34 4 8-2 16 0 22 6-10 2-18 8-20 16 8-4 16-4 22 0-8 6-12 14-10 22 6-8 14-12 20-10 6-2 14 2 20 10 2-8-2-16-10-22 6-4 14-4 22 0-2-8-10-14-20-16 6-6 14-8 22-6-4-10-20-14-34-4z"/>
+      </svg>
+      <div class="label"><img class="label-avatar" src="characters/vex.png" alt="" onerror="this.remove()">Vex</div>
+    </div>
+
+    <div class="hero-fig fig-cinder">
+      <div class="flame-stream"></div>
+      <svg viewBox="0 0 100 150" class="glow-outline">
+        <ellipse class="silhouette" cx="50" cy="24" rx="14" ry="15"/>
+        <path class="silhouette" d="M30 40h40l6 46-10 50H34l-10-50z"/>
+        <rect class="silhouette" x="6" y="66" width="28" height="14" rx="6" transform="rotate(-14 6 66)"/>
+      </svg>
+      <div class="label"><img class="label-avatar" src="characters/cinder.png" alt="" onerror="this.remove()">Cinder</div>
+    </div>
+
+    <div class="hero-fig fig-grom">
+      <svg viewBox="0 0 140 190" class="glow-outline">
+        <rect class="silhouette" x="66" y="4" width="8" height="46" rx="3"/>
+        <path class="silhouette" d="M74 4l30 10-4 20-30-8z"/>
+        <rect class="silhouette" x="60" y="40" width="14" height="40" rx="6" transform="rotate(10 60 40)"/>
+        <ellipse class="silhouette" cx="70" cy="66" rx="17" ry="18"/>
+        <path class="silhouette" d="M56 74c4 14 10 20 14 20s10-6 14-20c-8 4-20 4-28 0z"/>
+        <path class="silhouette" d="M42 90h56l8 56-12 40H46l-12-40z"/>
+        <rect class="silhouette" x="46" y="150" width="18" height="40" rx="6"/>
+        <rect class="silhouette" x="76" y="150" width="18" height="40" rx="6"/>
+      </svg>
+      <div class="label"><img class="label-avatar" src="characters/grom.png" alt="" onerror="this.remove()">Grom, el Leñador</div>
+    </div>
+    <div class="rubble"></div>
+
+    <div class="hero-fig fig-selene">
+      <div class="note-orbit"><span></span><span></span><span></span><span></span></div>
+      <svg viewBox="0 0 100 150" class="glow-outline">
+        <ellipse class="silhouette" cx="50" cy="22" rx="13" ry="14"/>
+        <path class="silhouette" d="M32 38h36l8 50-14 46H38l-14-46z"/>
+        <rect class="silhouette" x="66" y="46" width="30" height="10" rx="5" transform="rotate(-20 66 46)"/>
+      </svg>
+      <div class="label"><img class="label-avatar" src="characters/selene.png" alt="" onerror="this.remove()">Selene</div>
+    </div>
+
+    <div class="hero-fig fig-zip">
+      <div class="skate-spark"></div>
+      <svg viewBox="0 0 100 140" class="glow-outline">
+        <ellipse class="silhouette" cx="46" cy="20" rx="12" ry="13"/>
+        <path class="silhouette" d="M30 34h34l10 40-24 34-24-18 8-30z"/>
+        <rect class="silhouette" x="6" y="90" width="26" height="10" rx="5" transform="rotate(18 6 90)"/>
+        <rect class="silhouette" x="8" y="106" width="30" height="8" rx="4"/>
+      </svg>
+      <div class="label"><img class="label-avatar" src="characters/zip.png" alt="" onerror="this.remove()">Zip</div>
+    </div>
+  </div>
+
+  <div class="bottom-bar">
+    <div class="bar-labels">
+      <div class="arena-name">Preparando <span>Heroic Guardians</span></div>
+      <div class="pct" id="pctLabel">Cargando… 0%</div>
+    </div>
+    <div class="track"><div class="fill" id="introFill"></div></div>
+  </div>
+</div>
 
 <!-- ================= PANTALLA 1: CREACIÓN (solo primera vez) ================= -->
 <div class="screen" id="creator">
@@ -288,9 +557,28 @@
   <button id="enterArenaBtn">Entrar a la arena</button>
 </div>
 
+<!-- ================= PANTALLA 2.6: FORJANDO LA FUSIÓN (carga) ================= -->
+<div class="screen" id="loadingScreen">
+  <div class="loading-stage">
+    <div class="axe-wrap">
+      <svg viewBox="0 0 200 200">
+        <path class="seam" d="M100 8 L92 60 L108 78 L88 120 L112 140 L100 192" />
+      </svg>
+    </div>
+    <div class="loading-wordmark">
+      <h1>Heroic Guardians</h1>
+      <p class="loading-sub" id="loadingTagline">Forjando tu Fusión</p>
+    </div>
+    <div class="loading-badges" id="loadingBadges"></div>
+    <div class="loading-progress-wrap">
+      <div class="loading-progress-track"><div class="loading-progress-fill" id="loadingProgressFill"></div></div>
+    </div>
+  </div>
+</div>
+
 <!-- ================= PANTALLA 3: PARTIDA ================= -->
 <div class="screen" id="gameScreen">
-  <h1 id="gameTitle">🪓 TIMBER BRAWL</h1>
+  <h1 id="gameTitle">🪓 HEROIC GUARDIANS</h1>
   <p id="gameSubtitle">Fusión: —</p>
   <div id="gameContainer">
     <canvas id="game" width="900" height="600"></canvas>
@@ -536,13 +824,30 @@ document.getElementById('resetLink').addEventListener('click', () => {
 });
 
 (function init() {
-  const saved = loadSavedTraits();
-  if (saved) {
-    document.getElementById('welcomeName').textContent = `Bienvenido de vuelta, ${saved.name}`;
-    showScreen('welcomeBack');
-  } else {
-    showScreen('creator');
+  function decideStartScreen() {
+    const saved = loadSavedTraits();
+    if (saved) {
+      document.getElementById('welcomeName').textContent = `Bienvenido de vuelta, ${saved.name}`;
+      showScreen('welcomeBack');
+    } else {
+      showScreen('creator');
+    }
   }
+
+  // Pantalla cyberpunk de bienvenida: se ve siempre al entrar, una vez, antes que nada más.
+  showScreen('introScreen');
+  const pctEl = document.getElementById('pctLabel');
+  const fillEl = document.getElementById('introFill');
+  const introStart = performance.now();
+  const INTRO_DURATION = 3200;
+  requestAnimationFrame(() => { fillEl.style.transition = `width ${INTRO_DURATION / 1000}s cubic-bezier(.4,0,.2,1)`; fillEl.style.width = '100%'; });
+  function introTick(now) {
+    const t = Math.min(1, (now - introStart) / INTRO_DURATION);
+    pctEl.textContent = `Cargando… ${Math.round(t * 100)}%`;
+    if (t < 1) requestAnimationFrame(introTick);
+    else setTimeout(decideStartScreen, 250);
+  }
+  requestAnimationFrame(introTick);
 })();
 
 // =====================================================================
@@ -600,6 +905,7 @@ function playSfx(type) {
   else if (type === 'super') { [523, 659, 784, 1046].forEach((f, i) => tone(f, 0.13, 'square', sfxGain, t + i * 0.06, 0.28)); }
   else if (type === 'damage') tone(140, 0.13, 'sawtooth', sfxGain, t, 0.3);
   else if (type === 'click') tone(900, 0.045, 'square', sfxGain, t, 0.14);
+  else if (type === 'thud') tone(110, 0.06, 'triangle', sfxGain, t, 0.12);
   else if (type === 'victory') { [523, 659, 784, 1046, 1318].forEach((f, i) => tone(f, 0.2, 'square', sfxGain, t + i * 0.12, 0.28)); }
   else if (type === 'defeat') { [392, 349, 311, 262].forEach((f, i) => tone(f, 0.26, 'sawtooth', sfxGain, t + i * 0.15, 0.28)); }
 }
@@ -639,6 +945,22 @@ function toggleMute() {
   if (audioMuted) stopMusic(); else if (gameActive) startMusic();
 }
 
+// Empuja a una entidad (jugador o bot) fuera de cualquier árbol/roca con el que se solape.
+// El radio de colisión es algo menor que el visual, para que no se sienta exagerado.
+function pushOutOfObstacles(entity) {
+  obstacles.forEach(o => {
+    const collR = o.r * 0.72;
+    const dx = entity.x - o.x, dy = entity.y - o.y;
+    const d = Math.hypot(dx, dy);
+    const minDist = entity.r + collR;
+    if (d < minDist) {
+      if (d < 0.001) { entity.x += minDist; return; }
+      const push = minDist - d;
+      entity.x += (dx / d) * push;
+      entity.y += (dy / d) * push;
+    }
+  });
+}
 function findNearestTarget(from) {
   let best = null, bestDist = Infinity;
   bots.forEach(b => {
@@ -1116,6 +1438,7 @@ function update(dt) {
       if (target) player.angle = angleTo(player, target);
     }
   }
+  pushOutOfObstacles(player);
   player.x = clamp(player.x, player.r, WORLD_W - player.r);
   player.y = clamp(player.y, player.r, WORLD_H - player.r);
   if (player.shootCooldown > 0) player.shootCooldown -= dt;
@@ -1175,6 +1498,7 @@ function update(dt) {
     if (d > bot.projRange * 0.6) { bot.x += Math.cos(bot.angle) * bot.speed * dt; bot.y += Math.sin(bot.angle) * bot.speed * dt; bot.moving = true; }
     else if (d < bot.projRange * 0.35) { bot.x -= Math.cos(bot.angle) * bot.speed * 0.6 * dt; bot.y -= Math.sin(bot.angle) * bot.speed * 0.6 * dt; bot.moving = true; }
     if (bot.moving) bot.walkPhase += dt * 11;
+    pushOutOfObstacles(bot);
     bot.x = clamp(bot.x, bot.r, WORLD_W - bot.r); bot.y = clamp(bot.y, bot.r, WORLD_H - bot.r);
     if (bot.shootCooldown > 0) bot.shootCooldown -= dt;
     if (bot.attackAnim > 0) bot.attackAnim -= dt;
@@ -1215,8 +1539,11 @@ function update(dt) {
 
     const outOfBounds = p.x < 0 || p.x > WORLD_W || p.y < 0 || p.y > WORLD_H;
     const lifeOver = p.life <= 0;
+    // Los árboles y rocas cortan las líneas de tiro: cualquier proyectil que los toque se detiene ahí
+    const hitObstacle = !remove && obstacles.some(o => dist(p, o) < o.r * 0.72);
+    if (hitObstacle && p.ownerRef === player) playSfx('thud');
 
-    if (!remove && p.engine === 'lanzada' && (lifeOver || outOfBounds)) {
+    if (!remove && p.engine === 'lanzada' && (lifeOver || outOfBounds || hitObstacle)) {
       const aoeCandidates = [player, ...bots].filter(e => e !== p.ownerRef && e.alive);
       aoeCandidates.forEach(e => {
         if (dist(p, e) < (p.aoeRadius || 55)) {
@@ -1224,12 +1551,12 @@ function update(dt) {
         }
       });
       remove = true;
-    } else if (!remove && p.engine === 'bumeran' && lifeOver && p.phase === 'out') {
+    } else if (!remove && p.engine === 'bumeran' && (lifeOver || hitObstacle) && p.phase === 'out') {
       p.phase = 'back';
       p.life = p.maxLife;
       p.angle = p.angle + Math.PI;
       p.hitSet = new Set();
-    } else if (!remove && (lifeOver || outOfBounds)) {
+    } else if (!remove && (lifeOver || outOfBounds || hitObstacle)) {
       remove = true;
     }
 
@@ -1569,9 +1896,53 @@ function startMatch(savedTraits, fusion, mode) {
   document.getElementById('scoreBoard').innerHTML = gameMode === 'survival'
     ? `Rivales vivos: <span id="kills">${bots.length}</span>`
     : `Rivales derrotados: <span id="kills">0</span> / <span id="killTarget">${TARGET_KILLS}</span>`;
-  gameActive = true;
-  showScreen('gameScreen');
-  startMusic();
+  pushOutOfObstacles(player);
+  bots.forEach(b => pushOutOfObstacles(b));
+  gameActive = false;
+  showLoadingScreen(fusion);
+}
+
+// Pantalla de "Forjando tu Fusión": muestra a los 3 personajes reales de esta partida,
+// con sus retratos si existen, antes de entrar a la arena de verdad.
+const LOADING_TAGLINES = ['Forjando tu Fusión', 'Combinando arquetipos…', 'Repartiendo estadísticas…', 'Preparando la arena…'];
+function showLoadingScreen(fusion) {
+  const badgesEl = document.getElementById('loadingBadges');
+  badgesEl.innerHTML = '';
+  fusion.picks.forEach(p => {
+    const wrap = document.createElement('div');
+    wrap.className = 'loading-badge';
+    wrap.style.setProperty('--badge-c', ARCH_COLORS[p.arch]);
+    wrap.innerHTML = `
+      <div class="loading-badge-ring">
+        <div class="loading-badge-icon">
+          <span>${p.name}</span>
+          <img src="characters/${p.slug}.png" alt="${p.name}" onerror="this.remove()">
+        </div>
+      </div>
+      <div class="loading-badge-name">${p.name}</div>
+    `;
+    badgesEl.appendChild(wrap);
+  });
+
+  const fill = document.getElementById('loadingProgressFill');
+  fill.style.transition = 'none'; fill.style.width = '4%';
+  const tagline = document.getElementById('loadingTagline');
+  let tIndex = 0;
+  tagline.textContent = LOADING_TAGLINES[0];
+  const tInterval = setInterval(() => { tIndex = (tIndex + 1) % LOADING_TAGLINES.length; tagline.textContent = LOADING_TAGLINES[tIndex]; }, 550);
+
+  showScreen('loadingScreen');
+  requestAnimationFrame(() => {
+    fill.style.transition = 'width 1.7s cubic-bezier(.3,0,.2,1)';
+    fill.style.width = '100%';
+  });
+
+  setTimeout(() => {
+    clearInterval(tInterval);
+    showScreen('gameScreen');
+    gameActive = true;
+    startMusic();
+  }, 1900);
 }
 
 function endMatch(won) {
