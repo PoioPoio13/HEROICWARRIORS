@@ -1140,13 +1140,16 @@ function spawnBot() {
   // pero con vida propia mucho más baja: la fórmula del jugador está pensada
   // para un único protagonista, no para varios rivales que hay que abatir uno a uno.
   const botVida = Math.round(rand(50, 120));
+  // IA: los de arma cuerpo a cuerpo son siempre agresivos (su arma les obliga a estar pegados);
+  // el resto se reparte al azar entre agresivo (carga sin parar) y cauteloso (mantiene las distancias).
+  const aiType = fusion.weapon.engine === 'melee' ? 'agresivo' : (Math.random() < 0.5 ? 'agresivo' : 'cauteloso');
   return {
     x: rand(80, WORLD_W - 80), y: rand(80, WORLD_H - 80), r: 20,
     speed: fusion.moveSpeed,
     hp: botVida, maxHp: botVida, angle: 0,
     shootCooldown: rand(0, 1), shootRate: 1 / fusion.reload,
     baseDamage: fusion.dmg, precision: fusion.precision / 100, projRange: fusion.range,
-    weaponDef: fusion.weapon, fusion,
+    weaponDef: fusion.weapon, fusion, aiType,
     alive: true, respawnTimer: 0, color: outfitColor,
     walkPhase: rand(0, 6), moving: false, attackAnim: 0
   };
@@ -1154,6 +1157,8 @@ function spawnBot() {
 let bots = [spawnBot(), spawnBot()];
 let kills = 0;
 const TARGET_KILLS = 10;
+const MAX_LIVES = 5; // en Arena, si mueres 5 veces en la misma partida, pierdes
+let deathsThisMatch = 0;
 const projectiles = [];
 
 const keys = {};
@@ -1495,8 +1500,18 @@ function update(dt) {
     const d = dist(bot, target);
     bot.angle = angleTo(bot, target);
     bot.moving = false;
-    if (d > bot.projRange * 0.6) { bot.x += Math.cos(bot.angle) * bot.speed * dt; bot.y += Math.sin(bot.angle) * bot.speed * dt; bot.moving = true; }
-    else if (d < bot.projRange * 0.35) { bot.x -= Math.cos(bot.angle) * bot.speed * 0.6 * dt; bot.y -= Math.sin(bot.angle) * bot.speed * 0.6 * dt; bot.moving = true; }
+    if (bot.aiType === 'agresivo') {
+      // Carga sin parar hacia el objetivo, nunca retrocede — se planta encima si hace falta
+      if (d > bot.r + target.r + 2) {
+        bot.x += Math.cos(bot.angle) * bot.speed * 1.15 * dt;
+        bot.y += Math.sin(bot.angle) * bot.speed * 1.15 * dt;
+        bot.moving = true;
+      }
+    } else {
+      // Cauteloso: se acerca si está lejos, retrocede si le pisan la distancia (kiting)
+      if (d > bot.projRange * 0.6) { bot.x += Math.cos(bot.angle) * bot.speed * dt; bot.y += Math.sin(bot.angle) * bot.speed * dt; bot.moving = true; }
+      else if (d < bot.projRange * 0.35) { bot.x -= Math.cos(bot.angle) * bot.speed * 0.6 * dt; bot.y -= Math.sin(bot.angle) * bot.speed * 0.6 * dt; bot.moving = true; }
+    }
     if (bot.moving) bot.walkPhase += dt * 11;
     pushOutOfObstacles(bot);
     bot.x = clamp(bot.x, bot.r, WORLD_W - bot.r); bot.y = clamp(bot.y, bot.r, WORLD_H - bot.r);
@@ -1594,8 +1609,17 @@ function damagePlayer(dmg) {
   if (player.hp <= 0 && player.alive) {
     player.alive = false;
     if (gameMode === 'arena') {
-      flashMessage('Has caído... reapareciendo', 1500);
-      setTimeout(() => { player.hp = player.maxHp; player.x = W / 2; player.y = H / 2; player.alive = true; }, 1500);
+      deathsThisMatch++;
+      const livesLeft = MAX_LIVES - deathsThisMatch;
+      const livesEl = document.getElementById('livesLeft');
+      if (livesEl) livesEl.textContent = Math.max(0, livesLeft);
+      if (deathsThisMatch >= MAX_LIVES) {
+        flashMessage('Sin vidas...', 1500);
+        setTimeout(() => endMatch(false), 1500);
+      } else {
+        flashMessage(`Has caído... reapareciendo (${livesLeft} ${livesLeft === 1 ? 'vida' : 'vidas'})`, 1500);
+        setTimeout(() => { player.hp = player.maxHp; player.x = W / 2; player.y = H / 2; player.alive = true; }, 1500);
+      }
     } else {
       flashMessage('Has caído...', 1200);
       setTimeout(() => endMatch(false), 1200); // en Supervivencia no hay segundas oportunidades
@@ -1887,6 +1911,7 @@ function startMatch(savedTraits, fusion, mode) {
   player.x = WORLD_W / 2; player.y = WORLD_H / 2;
   player.superCharge = 0; player.superActive = false; player.superEngine = null; player.alive = true;
   kills = 0;
+  deathsThisMatch = 0;
   projectiles.length = 0;
   matchStartTime = performance.now();
   const fusionNames = fusion.picks.map(p => p.name).join(' + ');
@@ -1895,7 +1920,7 @@ function startMatch(savedTraits, fusion, mode) {
   document.getElementById('gameSubtitle').textContent = `Fusión ${fusion.rarity}: ${fusionNames} · Alcance ${fusion.rangeLabel} · ${fusion.weapon.name} · Super: ${fusion.superDef.name}`;
   document.getElementById('scoreBoard').innerHTML = gameMode === 'survival'
     ? `Rivales vivos: <span id="kills">${bots.length}</span>`
-    : `Rivales derrotados: <span id="kills">0</span> / <span id="killTarget">${TARGET_KILLS}</span>`;
+    : `Rivales derrotados: <span id="kills">0</span> / <span id="killTarget">${TARGET_KILLS}</span><br>Vidas: <span id="livesLeft">${MAX_LIVES}</span>`;
   pushOutOfObstacles(player);
   bots.forEach(b => pushOutOfObstacles(b));
   gameActive = false;
@@ -1953,7 +1978,7 @@ function endMatch(won) {
   document.getElementById('endTitle').textContent = won ? '¡Victoria!' : 'Has caído';
   document.getElementById('endSubtitle').textContent = won
     ? (gameMode === 'survival' ? 'Has sido el último en pie' : 'Has derrotado a suficientes rivales')
-    : 'Tu Fusión no ha sobrevivido esta vez';
+    : (gameMode === 'arena' ? `Te has quedado sin vidas (${MAX_LIVES} caídas)` : 'Tu Fusión no ha sobrevivido esta vez');
   const survivorsLeft = bots.filter(b => b.alive).length;
   document.getElementById('endStats').innerHTML = `
     <div><div class="fusion-stat-label">${gameMode === 'survival' ? 'Rivales eliminados' : 'Rivales derrotados'}</div><div class="fusion-stat-value">${gameMode === 'survival' ? (bots.length - survivorsLeft) : kills}</div></div>
