@@ -98,6 +98,28 @@
   /* ===== PANTALLA: ELECCIÓN DE MODO ===== */
   #modeSelectScreen { flex-direction: column; align-items: center; justify-content: center; width: 100%; padding: 20px; text-align: center; }
   .mode-cards { display: flex; gap: 18px; flex-wrap: wrap; justify-content: center; max-width: 760px; }
+
+  /* ===== PANTALLA: TIENDA ===== */
+  #shopScreen { flex-direction: column; align-items: center; padding: 26px 16px 40px; width: 100%; }
+  .shop-balance { margin-top: 8px; font-size: 16px; font-weight: 800; color: var(--accent); }
+  .shop-categories { display: flex; flex-direction: column; gap: 22px; width: 100%; max-width: 720px; }
+  .shop-category-title { font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--ink-dim); margin-bottom: 10px; }
+  .shop-items-row { display: flex; gap: 12px; flex-wrap: wrap; }
+  .shop-item {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+    padding: 12px; width: 120px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 6px;
+  }
+  .shop-item-preview { width: 36px; height: 36px; border-radius: 50%; border: 2px solid var(--line); }
+  .shop-item-preview.badge-preview { border-radius: 8px; width: auto; height: auto; padding: 4px 8px; font-size: 16px; }
+  .shop-item-name { font-size: 11px; color: var(--ink); }
+  .shop-item-btn {
+    width: 100%; margin-top: 2px; border: none; border-radius: 8px; padding: 6px 4px;
+    font-size: 11px; font-weight: 700; cursor: pointer;
+    background: linear-gradient(180deg, var(--accent), var(--accent-dim)); color: #1a1006;
+  }
+  .shop-item-btn.owned { background: #2f6b3e; color: #d8ffe0; cursor: default; }
+  .shop-item-btn.equipped { background: #4a4a52; color: #fff; cursor: default; }
+  .shop-item-btn.disabled { background: var(--panel-2); color: var(--ink-dim); cursor: not-allowed; }
   .mode-card {
     background: var(--panel); border: 2px solid var(--line); border-radius: 16px;
     padding: 22px; width: 300px; text-align: left; cursor: pointer;
@@ -525,7 +547,19 @@
   <p class="sub">Tu personaje ya está guardado — listo para entrar a la arena</p>
   <p class="sub" id="statsLine" style="font-size: 12px; margin-top: -10px;"></p>
   <button id="playBtn">Jugar</button>
+  <button id="shopBtn">🛒 Tienda</button>
   <button id="resetLink">Restablecer personaje (debug)</button>
+</div>
+
+<!-- ================= PANTALLA: TIENDA (cosmética, sin ventaja de combate) ================= -->
+<div class="screen" id="shopScreen">
+  <div class="title-block">
+    <h1>Tienda</h1>
+    <p>Todo aquí es puramente cosmético — nada afecta a tus estadísticas de Fusión</p>
+    <p class="shop-balance">🔶 <span id="shopBalance">0</span> fragmentos</p>
+  </div>
+  <div class="shop-categories" id="shopCategories"></div>
+  <button id="shopBackBtn" style="margin-top: 20px; background: none; border: none; color: var(--ink-dim); text-decoration: underline; cursor: pointer; font-size: 13px;">Volver</button>
 </div>
 
 <!-- ================= PANTALLA 2: ELECCIÓN DE MODO ================= -->
@@ -622,13 +656,14 @@
 // =====================================================================
 // PARTE A — CREACIÓN DE PERSONAJE (rasgos + guardado)
 // =====================================================================
-const SKIN_TONES = ['#ffdcb0', '#f0b98a', '#c98a5e', '#8a5a3c', '#5c3823'];
-const HAIR_COLORS = ['#2b1a10', '#5c3a1e', '#8a4a2a', '#c9a13a', '#787878', '#b23a3a'];
+let SKIN_TONES = ['#ffdcb0', '#f0b98a', '#c98a5e', '#8a5a3c', '#5c3823'];
+let HAIR_COLORS = ['#2b1a10', '#5c3a1e', '#8a4a2a', '#c9a13a', '#787878', '#b23a3a'];
 const HAIR_STYLES = [{ id: 'corto', label: 'Corto' }, { id: 'largo', label: 'Largo' }, { id: 'calvo', label: 'Rapado' }];
-const OUTFIT_COLORS = ['#8b3a2f', '#3a5f8b', '#3a7d4a', '#6a3a8b', '#8b7a3a', '#4a4a52'];
+let OUTFIT_COLORS = ['#8b3a2f', '#3a5f8b', '#3a7d4a', '#6a3a8b', '#8b7a3a', '#4a4a52'];
 const WEAPONS = [{ id: 'hacha', label: '🪓 Hacha' }, { id: 'guantes', label: '👊 Guantes' }, { id: 'baston', label: '🔮 Bastón' }];
 const STORAGE_KEY = 'timberBrawlCharacter';
 const STATS_KEY = 'heroicGuardiansStats';
+const SHOP_KEY = 'heroicGuardiansShop';
 const RARITY_RANK = { 'Común': 0, 'Rara': 1, 'Épica': 2, 'Legendaria': 3, 'Mítica': 4 };
 
 function loadStats() {
@@ -646,8 +681,62 @@ function renderStatsLine() {
   if (!el) return;
   const s = loadStats();
   if (s.matches === 0) { el.textContent = 'Aún no has jugado ninguna partida'; return; }
-  el.innerHTML = `🏆 ${s.wins} victorias · 🔶 ${s.fragments} fragmentos · racha máxima ${s.bestStreak}${s.rarestFusion ? ` · Fusión más rara: ${s.rarestFusion}` : ''}`;
+  const badge = getActiveBadgeLabel();
+  el.innerHTML = `🏆 ${s.wins} victorias · 🔶 ${s.fragments} fragmentos · racha máxima ${s.bestStreak}${s.rarestFusion ? ` · Fusión más rara: ${s.rarestFusion}` : ''}${badge ? ` · ${badge}` : ''}`;
 }
+
+// ---------- TIENDA (100% cosmética — nada de esto afecta a las estadísticas de la Fusión) ----------
+const SHOP_ITEMS = {
+  skin: [
+    { id: 'skin_porcelana', label: 'Porcelana', value: '#ffe8d6', price: 60 },
+    { id: 'skin_ebano', label: 'Ébano profundo', value: '#3d2817', price: 60 }
+  ],
+  hair: [
+    { id: 'hair_azul', label: 'Azul eléctrico', value: '#3d7cff', price: 80 },
+    { id: 'hair_rosa', label: 'Rosa neón', value: '#ff4fd8', price: 80 },
+    { id: 'hair_verde', label: 'Verde esmeralda', value: '#2ecc71', price: 90 },
+    { id: 'hair_plata', label: 'Plata', value: '#c9d6e0', price: 80 }
+  ],
+  outfit: [
+    { id: 'outfit_dorado', label: 'Dorado real', value: '#c9a227', price: 150 },
+    { id: 'outfit_carmesi', label: 'Carmesí', value: '#a4203a', price: 150 },
+    { id: 'outfit_esmeralda', label: 'Esmeralda', value: '#1f7a4d', price: 150 },
+    { id: 'outfit_violeta', label: 'Violeta místico', value: '#6b2fa0', price: 160 }
+  ],
+  badge: [
+    { id: 'badge_veterano', label: 'Veterano', value: 'Veterano', price: 200 },
+    { id: 'badge_leyenda', label: 'Leyenda', value: 'Leyenda', price: 400 }
+  ]
+};
+function loadShop() {
+  try {
+    const s = JSON.parse(localStorage.getItem(SHOP_KEY));
+    if (s) return s;
+  } catch (e) {}
+  return { owned: [], activeBadge: null };
+}
+function saveShop(s) { try { localStorage.setItem(SHOP_KEY, JSON.stringify(s)); } catch (e) {} }
+function findShopItem(id) {
+  for (const cat in SHOP_ITEMS) { const found = SHOP_ITEMS[cat].find(i => i.id === id); if (found) return found; }
+  return null;
+}
+function getActiveBadgeLabel() {
+  const shop = loadShop();
+  return shop.activeBadge ? `🎖️ ${shop.activeBadge}` : null;
+}
+// Mete en las paletas normales cualquier color ya comprado en sesiones anteriores,
+// para que aparezca disponible en la creación de personaje sin más pasos.
+function mergeOwnedIntoPalettes() {
+  const owned = loadShop().owned;
+  owned.forEach(id => {
+    const item = findShopItem(id);
+    if (!item) return;
+    if (SHOP_ITEMS.skin.includes(item) && !SKIN_TONES.includes(item.value)) SKIN_TONES.push(item.value);
+    if (SHOP_ITEMS.hair.includes(item) && !HAIR_COLORS.includes(item.value)) HAIR_COLORS.push(item.value);
+    if (SHOP_ITEMS.outfit.includes(item) && !OUTFIT_COLORS.includes(item.value)) OUTFIT_COLORS.push(item.value);
+  });
+}
+mergeOwnedIntoPalettes();
 
 let traits = { name: '', skin: SKIN_TONES[1], hairColor: HAIR_COLORS[0], hairStyle: 'corto', outfit: OUTFIT_COLORS[0], weapon: 'hacha' };
 
@@ -842,6 +931,98 @@ document.getElementById('enterArenaBtn').addEventListener('click', () => {
 document.getElementById('resetLink').addEventListener('click', () => {
   localStorage.removeItem(STORAGE_KEY);
   location.reload();
+});
+
+// ---------- PANTALLA DE TIENDA ----------
+const SHOP_CATEGORY_LABELS = { skin: 'Tonos de piel', hair: 'Colores de pelo', outfit: 'Colores de ropa', badge: 'Insignias de nombre' };
+
+function renderShop() {
+  const stats = loadStats();
+  const shop = loadShop();
+  document.getElementById('shopBalance').textContent = stats.fragments;
+
+  const container = document.getElementById('shopCategories');
+  container.innerHTML = '';
+
+  Object.keys(SHOP_ITEMS).forEach(cat => {
+    const block = document.createElement('div');
+    const title = document.createElement('div');
+    title.className = 'shop-category-title';
+    title.textContent = SHOP_CATEGORY_LABELS[cat];
+    block.appendChild(title);
+
+    const row = document.createElement('div');
+    row.className = 'shop-items-row';
+
+    SHOP_ITEMS[cat].forEach(item => {
+      const owned = shop.owned.includes(item.id);
+      const card = document.createElement('div');
+      card.className = 'shop-item';
+
+      const preview = document.createElement('div');
+      if (cat === 'badge') {
+        preview.className = 'shop-item-preview badge-preview';
+        preview.textContent = '🎖️';
+      } else {
+        preview.className = 'shop-item-preview';
+        preview.style.background = item.value;
+      }
+      card.appendChild(preview);
+
+      const name = document.createElement('div');
+      name.className = 'shop-item-name';
+      name.textContent = item.label;
+      card.appendChild(name);
+
+      const btn = document.createElement('button');
+      if (cat === 'badge' && owned) {
+        const equipped = shop.activeBadge === item.value;
+        btn.className = 'shop-item-btn' + (equipped ? ' equipped' : '');
+        btn.textContent = equipped ? 'Puesta' : 'Equipar';
+        btn.addEventListener('click', () => {
+          shop.activeBadge = equipped ? null : item.value;
+          saveShop(shop);
+          renderShop(); renderStatsLine();
+        });
+      } else if (owned) {
+        btn.className = 'shop-item-btn owned';
+        btn.textContent = 'Adquirido';
+        btn.disabled = true;
+      } else {
+        const canAfford = stats.fragments >= item.price;
+        btn.className = 'shop-item-btn' + (canAfford ? '' : ' disabled');
+        btn.textContent = `🔶 ${item.price}`;
+        if (!canAfford) btn.disabled = true;
+        btn.addEventListener('click', () => {
+          const s = loadStats();
+          if (s.fragments < item.price) return;
+          s.fragments -= item.price;
+          saveStats(s);
+          const sh = loadShop();
+          sh.owned.push(item.id);
+          saveShop(sh);
+          mergeOwnedIntoPalettes();
+          playSfx('super'); // reutilizo el jingle ascendente como sonido de compra
+          renderShop(); renderStatsLine();
+        });
+      }
+      card.appendChild(btn);
+      row.appendChild(card);
+    });
+
+    block.appendChild(row);
+    container.appendChild(block);
+  });
+}
+
+document.getElementById('shopBtn').addEventListener('click', () => {
+  initAudio(); playSfx('click');
+  renderShop();
+  showScreen('shopScreen');
+});
+document.getElementById('shopBackBtn').addEventListener('click', () => {
+  playSfx('click');
+  showScreen('welcomeBack'); renderStatsLine();
 });
 
 (function init() {
@@ -1937,7 +2118,8 @@ function startMatch(savedTraits, fusion, mode) {
   matchStartTime = performance.now();
   const fusionNames = fusion.picks.map(p => p.name).join(' + ');
   const modeLabel = gameMode === 'survival' ? '🏆 Supervivencia' : '⚔️ Arena';
-  document.getElementById('gameTitle').textContent = `🪓 HEROIC GUARDIANS — ${savedTraits.name} · ${modeLabel}`;
+  const badgeLabel = getActiveBadgeLabel();
+  document.getElementById('gameTitle').textContent = `🪓 HEROIC GUARDIANS — ${badgeLabel ? badgeLabel + ' ' : ''}${savedTraits.name} · ${modeLabel}`;
   document.getElementById('gameSubtitle').textContent = `Fusión ${fusion.rarity}: ${fusionNames} · Alcance ${fusion.rangeLabel} · ${fusion.weapon.name} · Super: ${fusion.superDef.name}`;
   document.getElementById('scoreBoard').innerHTML = gameMode === 'survival'
     ? `Rivales vivos: <span id="kills">${bots.length}</span>`
