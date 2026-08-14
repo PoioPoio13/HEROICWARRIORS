@@ -523,6 +523,7 @@
   <canvas id="returnCanvas" width="220" height="280"></canvas>
   <h2 id="welcomeName">Bienvenido de vuelta</h2>
   <p class="sub">Tu personaje ya está guardado — listo para entrar a la arena</p>
+  <p class="sub" id="statsLine" style="font-size: 12px; margin-top: -10px;"></p>
   <button id="playBtn">Jugar</button>
   <button id="resetLink">Restablecer personaje (debug)</button>
 </div>
@@ -627,6 +628,26 @@ const HAIR_STYLES = [{ id: 'corto', label: 'Corto' }, { id: 'largo', label: 'Lar
 const OUTFIT_COLORS = ['#8b3a2f', '#3a5f8b', '#3a7d4a', '#6a3a8b', '#8b7a3a', '#4a4a52'];
 const WEAPONS = [{ id: 'hacha', label: '🪓 Hacha' }, { id: 'guantes', label: '👊 Guantes' }, { id: 'baston', label: '🔮 Bastón' }];
 const STORAGE_KEY = 'timberBrawlCharacter';
+const STATS_KEY = 'heroicGuardiansStats';
+const RARITY_RANK = { 'Común': 0, 'Rara': 1, 'Épica': 2, 'Legendaria': 3, 'Mítica': 4 };
+
+function loadStats() {
+  try {
+    const s = JSON.parse(localStorage.getItem(STATS_KEY));
+    if (s) return s;
+  } catch (e) {}
+  return { matches: 0, wins: 0, losses: 0, bestStreak: 0, currentStreak: 0, fragments: 0, totalKills: 0, rarestFusion: null };
+}
+function saveStats(s) {
+  try { localStorage.setItem(STATS_KEY, JSON.stringify(s)); } catch (e) {}
+}
+function renderStatsLine() {
+  const el = document.getElementById('statsLine');
+  if (!el) return;
+  const s = loadStats();
+  if (s.matches === 0) { el.textContent = 'Aún no has jugado ninguna partida'; return; }
+  el.innerHTML = `🏆 ${s.wins} victorias · 🔶 ${s.fragments} fragmentos · racha máxima ${s.bestStreak}${s.rarestFusion ? ` · Fusión más rara: ${s.rarestFusion}` : ''}`;
+}
 
 let traits = { name: '', skin: SKIN_TONES[1], hairColor: HAIR_COLORS[0], hairStyle: 'corto', outfit: OUTFIT_COLORS[0], weapon: 'hacha' };
 
@@ -753,7 +774,7 @@ document.getElementById('confirmBtn').addEventListener('click', () => {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(traits)); }
   catch (e) { console.warn('No se pudo guardar en localStorage (normal en la vista previa del chat):', e); }
   document.getElementById('welcomeName').textContent = `Bienvenido, ${traits.name}`;
-  showScreen('welcomeBack');
+  showScreen('welcomeBack'); renderStatsLine();
 });
 
 const RARITY_COLORS = { 'Común':'#9a9aa5', 'Rara':'#4fa8e0', 'Épica':'#8b7cf5', 'Legendaria':'#ff9800', 'Mítica':'#ff6a9e' };
@@ -828,7 +849,7 @@ document.getElementById('resetLink').addEventListener('click', () => {
     const saved = loadSavedTraits();
     if (saved) {
       document.getElementById('welcomeName').textContent = `Bienvenido de vuelta, ${saved.name}`;
-      showScreen('welcomeBack');
+      showScreen('welcomeBack'); renderStatsLine();
     } else {
       showScreen('creator');
     }
@@ -1975,15 +1996,30 @@ function endMatch(won) {
   stopMusic();
   playSfx(won ? 'victory' : 'defeat');
   const elapsed = ((performance.now() - matchStartTime) / 1000).toFixed(1);
+  const survivorsLeft = bots.filter(b => b.alive).length;
+  const killsThisMatch = gameMode === 'survival' ? (bots.length - survivorsLeft) : kills;
+
+  // Guardado de partida + recompensas
+  const stats = loadStats();
+  stats.matches++;
+  stats.totalKills += killsThisMatch;
+  if (won) { stats.wins++; stats.currentStreak++; stats.bestStreak = Math.max(stats.bestStreak, stats.currentStreak); }
+  else { stats.losses++; stats.currentStreak = 0; }
+  const fusionRarity = player.fusion.rarity;
+  if (!stats.rarestFusion || RARITY_RANK[fusionRarity] > RARITY_RANK[stats.rarestFusion]) stats.rarestFusion = fusionRarity;
+  const fragmentsEarned = 10 + killsThisMatch * 4 + (won ? 40 : 0);
+  stats.fragments += fragmentsEarned;
+  saveStats(stats);
+
   document.getElementById('endTitle').textContent = won ? '¡Victoria!' : 'Has caído';
   document.getElementById('endSubtitle').textContent = won
     ? (gameMode === 'survival' ? 'Has sido el último en pie' : 'Has derrotado a suficientes rivales')
     : (gameMode === 'arena' ? `Te has quedado sin vidas (${MAX_LIVES} caídas)` : 'Tu Fusión no ha sobrevivido esta vez');
-  const survivorsLeft = bots.filter(b => b.alive).length;
   document.getElementById('endStats').innerHTML = `
-    <div><div class="fusion-stat-label">${gameMode === 'survival' ? 'Rivales eliminados' : 'Rivales derrotados'}</div><div class="fusion-stat-value">${gameMode === 'survival' ? (bots.length - survivorsLeft) : kills}</div></div>
+    <div><div class="fusion-stat-label">${gameMode === 'survival' ? 'Rivales eliminados' : 'Rivales derrotados'}</div><div class="fusion-stat-value">${killsThisMatch}</div></div>
     <div><div class="fusion-stat-label">Tiempo de partida</div><div class="fusion-stat-value">${elapsed}s</div></div>
     <div style="grid-column: 1 / -1;"><div class="fusion-stat-label">Tu Fusión</div><div class="fusion-stat-value">${player.fusion.rarity}: ${player.fusion.picks.map(p => p.name).join(' + ')}</div></div>
+    <div style="grid-column: 1 / -1;"><div class="fusion-stat-label">Fragmentos ganados</div><div class="fusion-stat-value">🔶 +${fragmentsEarned} (total: ${stats.fragments})</div></div>
   `;
   showScreen('matchEndScreen');
 }
@@ -1992,7 +2028,7 @@ document.getElementById('playAgainBtn').addEventListener('click', () => {
   startFusionFlow(gameMode);
 });
 document.getElementById('backToMenuBtn').addEventListener('click', () => {
-  showScreen('welcomeBack');
+  showScreen('welcomeBack'); renderStatsLine();
 });
 
 let last = performance.now();
