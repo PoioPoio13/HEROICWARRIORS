@@ -230,7 +230,7 @@
   #superText { font-weight: bold; font-size: 14px; color: #ffd54f; height: 18px; }
   #scoreBoard { position: absolute; top: 10px; right: 14px; text-align: right; text-shadow: 1px 1px 2px #000; font-size: 15px; }
   #muteBtn {
-    position: absolute; top: 38px; right: 14px; z-index: 20;
+    position: absolute; top: 62px; right: 14px; z-index: 20;
     background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.2); border-radius: 8px;
     color: #fff; font-size: 15px; padding: 4px 8px; cursor: pointer;
   }
@@ -1517,6 +1517,19 @@ const player = {
   traits: null // se rellena en startMatch()
 };
 
+// ---------- DIFICULTAD DE LOS BOTS (todos los ajustes en un solo sitio) ----------
+// Cada bot recibe un valor al azar dentro de estos rangos, así que no todos son igual de listos.
+const BOT_TUNING = {
+  strafe: 0.5,                                            // cuánto zigzaguean al pelear (0 = se quedan quietos)
+  dodge:  { agresivo: [0.10, 0.30], cauteloso: [0.20, 0.40] }, // probabilidad de esquivar un disparo que les viene
+  lead:   [0.15, 0.45],                                   // cuánto adelantan el disparo a un blanco que se mueve
+  fleeAt: { agresivo: [0.12, 0.22], cauteloso: [0.25, 0.40] }, // % de vida por debajo del cual huyen
+  hideMax: 6,                                             // segundos máximos escondidos antes de volver a la pelea
+  stubborn: 10,                                           // segundos que ignoran el miedo tras volver
+  orbs: true                                              // ¿van a por los orbes?
+};
+const tune = ([a, b]) => rand(a, b);
+
 function spawnBot() {
   const fusion = generateFusion();
   const outfitColor = OUTFIT_COLORS[Math.floor(Math.random() * OUTFIT_COLORS.length)];
@@ -1527,6 +1540,7 @@ function spawnBot() {
   // IA: los de arma cuerpo a cuerpo son siempre agresivos (su arma les obliga a estar pegados);
   // el resto se reparte al azar entre agresivo (carga sin parar) y cauteloso (mantiene las distancias).
   const aiType = fusion.weapon.engine === 'melee' ? 'agresivo' : (Math.random() < 0.5 ? 'agresivo' : 'cauteloso');
+  const agresivo = aiType === 'agresivo';
   return {
     x: rand(80, WORLD_W - 80), y: rand(80, WORLD_H - 80), r: 20,
     speed: fusion.moveSpeed,
@@ -1535,7 +1549,20 @@ function spawnBot() {
     baseDamage: fusion.dmg, precision: fusion.precision / 100, projRange: fusion.range,
     weaponDef: fusion.weapon, fusion, aiType,
     alive: true, respawnTimer: 0, color: outfitColor,
-    walkPhase: rand(0, 6), moving: false, attackAnim: 0
+    walkPhase: rand(0, 6), moving: false, attackAnim: 0,
+    // ---- cerebro ----
+    buffs: { escudo: 0, velocidad: 0, municion: 0 },
+    state: 'atacar', target: null, retargetTimer: 0,
+    strafeDir: Math.random() < 0.5 ? 1 : -1, strafeTimer: rand(0, 1.5),
+    dodgeTimer: 0, dodgeCd: 0, dodgeVec: null,
+    orbTimer: rand(0, 0.5), orbTarget: null,
+    coverSpot: null, coverTimer: 0, hideTime: 0, stubbornTimer: 0,
+    flankSide: Math.random() < 0.5 ? 1 : -1, flankTimer: 0,
+    // personalidad: los agresivos aguantan más herido y esquivan peor; los cautelosos huyen antes
+    fleeAt: tune(BOT_TUNING.fleeAt[aiType]),
+    dodgeSkill: tune(BOT_TUNING.dodge[aiType]),
+    orbGreed: agresivo ? rand(0.2, 0.55) : rand(0.5, 0.9),
+    aimLead: tune(BOT_TUNING.lead)
   };
 }
 let bots = [spawnBot(), spawnBot()];
@@ -1683,7 +1710,7 @@ function shoot(shooter, angle, isBot) {
   if (shooter === player && player.superActive) return;
 
   const weaponDef = shooter.weaponDef || null;
-  shooter.shootCooldown = shooter.shootRate * (weaponDef ? (weaponDef.cdMult || 1) : 1) * ((shooter === player && buffs.municion > 0) ? 0.6 : 1);
+  shooter.shootCooldown = shooter.shootRate * (weaponDef ? (weaponDef.cdMult || 1) : 1) * (buffsOf(shooter).municion > 0 ? 0.6 : 1);
   shooter.attackAnim = 0.28;
   if (shooter === player) playShootSfx(weaponDef ? weaponDef.visual : 'hoja');
 
@@ -1694,7 +1721,7 @@ function shoot(shooter, angle, isBot) {
   let finalAngle = angle;
 
   if (weaponDef) {
-    damage = Math.round(damage * (weaponDef.dmgMult || 1) * ((shooter === player && buffs.municion > 0) ? 1.2 : 1));
+    damage = Math.round(damage * (weaponDef.dmgMult || 1) * (buffsOf(shooter).municion > 0 ? 1.2 : 1));
     const precision = shooter.precision !== undefined ? shooter.precision : 0.8;
     const spread = (1 - precision) * 0.35;
     finalAngle = angle + (Math.random() - 0.5) * spread;
@@ -1829,7 +1856,7 @@ function spawnPowerup() {
 
 function initPowerups() {
   powerups = []; floatingTexts = []; resetBuffs(); lastBuffsHtml = '';
-  powerupCfg = gameMode === 'survival' ? { max: 9, interval: 5, initial: 5 } : { max: 2, interval: 9, initial: 1 };
+  powerupCfg = gameMode === 'survival' ? { max: 12, interval: 4.5, initial: 7 } : { max: 3, interval: 8, initial: 2 };
   powerupSpawnTimer = powerupCfg.interval * 0.6;
   for (let i = 0; i < powerupCfg.initial; i++) spawnPowerup();
 }
@@ -1850,6 +1877,18 @@ function collectPowerup(pu) {
   playSfx('pickup');
 }
 
+function collectPowerupBot(bot, pu) {
+  const t = pu.type;
+  if (t.id === 'curacion') {
+    bot.hp = Math.min(bot.maxHp, bot.hp + Math.round(bot.maxHp * 0.35));
+    addFloatingText(bot.x, bot.y - 36, '+vida', t.color);
+  } else {
+    bot.buffs[t.id] = t.dur;
+    addFloatingText(bot.x, bot.y - 36, t.label + '!', t.color);
+  }
+  bot.orbTarget = null;
+}
+
 function updatePowerups(dt) {
   // aparición periódica
   powerupSpawnTimer -= dt;
@@ -1857,17 +1896,25 @@ function updatePowerups(dt) {
     spawnPowerup();
     powerupSpawnTimer = powerupCfg.interval * (0.8 + Math.random() * 0.4);
   }
-  // vida, recogida
+  // vida, recogida (el jugador y los bots compiten por los orbes)
   for (let i = powerups.length - 1; i >= 0; i--) {
     const pu = powerups[i];
     pu.life -= dt;
     if (pu.life <= 0) { powerups.splice(i, 1); continue; }
-    if (player.alive && dist(player, pu) < player.r + POWERUP_PICKUP_R) {
-      // la curación no se desperdicia con la vida al máximo: se queda en el mapa
-      if (pu.type.id === 'curacion' && player.hp >= player.maxHp) continue;
-      collectPowerup(pu);
-      powerups.splice(i, 1);
+    let taken = false;
+    // la curación no se desperdicia con la vida al máximo: se queda en el mapa
+    if (player.alive && dist(player, pu) < player.r + POWERUP_PICKUP_R && !(pu.type.id === 'curacion' && player.hp >= player.maxHp)) {
+      collectPowerup(pu); taken = true;
     }
+    if (!taken) {
+      for (const b of bots) {
+        if (!b.alive) continue;
+        if (dist(b, pu) < b.r + POWERUP_PICKUP_R && !(pu.type.id === 'curacion' && b.hp >= b.maxHp)) {
+          collectPowerupBot(b, pu); taken = true; break;
+        }
+      }
+    }
+    if (taken) powerups.splice(i, 1);
   }
   // cuenta atrás de efectos y textos flotantes
   for (const k in buffs) if (buffs[k] > 0) buffs[k] = Math.max(0, buffs[k] - dt);
@@ -1917,15 +1964,15 @@ function drawPowerups() {
   });
 }
 
-function drawBuffAuras(p) {
+function drawBuffAuras(p, bf = buffs) {
   const now = performance.now() / 1000;
   let ring = 0;
   POWERUP_TYPES.forEach(t => {
-    if (!t.dur || buffs[t.id] <= 0) return;
+    if (!t.dur || bf[t.id] <= 0) return;
     ring++;
     ctx.save();
     ctx.strokeStyle = t.color; ctx.lineWidth = 2;
-    const fading = buffs[t.id] < 1.5 && Math.floor(buffs[t.id] * 6) % 2 === 0;
+    const fading = bf[t.id] < 1.5 && Math.floor(bf[t.id] * 6) % 2 === 0;
     ctx.globalAlpha = fading ? 0.25 : 0.7;
     ctx.setLineDash(t.id === 'velocidad' ? [6, 5] : []);
     ctx.lineDashOffset = -now * 30;
@@ -1945,6 +1992,249 @@ function drawFloatingTexts() {
     ctx.fillStyle = f.color; ctx.fillText(f.text, f.x, f.y);
     ctx.restore();
   });
+}
+
+// =====================================================================
+// CEREBRO DE LOS BOTS
+// Cada bot decide en cada momento qué hacer: atacar, ir a por un orbe, curarse,
+// huir/esconderse si está herido, o descansar si no hay nadie a la vista.
+// =====================================================================
+const NO_BUFFS = { escudo: 0, velocidad: 0, municion: 0 };
+function buffsOf(e) { return e === player ? buffs : (e.buffs || NO_BUFFS); }
+
+// Velocidad estimada de cada uno (para adelantar el disparo)
+function trackVelocity(e, dt) {
+  if (dt <= 0) return;
+  if (e._px === undefined) { e.vx = 0; e.vy = 0; }
+  else { e.vx = (e.vx || 0) * 0.55 + ((e.x - e._px) / dt) * 0.45; e.vy = (e.vy || 0) * 0.55 + ((e.y - e._py) / dt) * 0.45; }
+  e._px = e.x; e._py = e.y;
+}
+
+// ¿Hay línea de tiro libre entre a y b? Los árboles y rocas paran los disparos.
+function hasLineOfSight(a, b) {
+  const dx = b.x - a.x, dy = b.y - a.y;
+  const len2 = dx * dx + dy * dy;
+  if (len2 < 1) return true;
+  for (const o of obstacles) {
+    const cr = o.r * 0.72 + 3;
+    const t = clamp(((o.x - a.x) * dx + (o.y - a.y) * dy) / len2, 0, 1);
+    const px = a.x + dx * t - o.x, py = a.y + dy * t - o.y;
+    if (px * px + py * py < cr * cr) return false;
+  }
+  return true;
+}
+
+function nearestEnemy(bot) {
+  let best = null, bd = Infinity;
+  if (player.alive) { best = player; bd = dist(bot, player); }
+  if (gameMode === 'survival') {
+    bots.forEach(b => { if (b !== bot && b.alive) { const d = dist(bot, b); if (d < bd) { bd = d; best = b; } } });
+  }
+  return best;
+}
+
+// A quién atacar: prefiere al herido (parece "más cerca") y no cambia de objetivo por nada
+function chooseBotTarget(bot) {
+  if (gameMode === 'arena') return player.alive ? player : null;
+  let best = null, bestScore = Infinity;
+  const consider = e => {
+    let score = dist(bot, e) * (0.65 + 0.35 * (e.hp / e.maxHp));
+    if (e === bot.target) score *= 0.8;
+    if (score < bestScore) { bestScore = score; best = e; }
+  };
+  if (player.alive) consider(player);
+  bots.forEach(b => { if (b !== bot && b.alive) consider(b); });
+  return best;
+}
+
+// Mejor orbe al que ir ahora mismo (o null): más ganas cuanto más falta hace y más cerca está
+function pickOrbFor(bot) {
+  const hpFrac = bot.hp / bot.maxHp;
+  const en = nearestEnemy(bot);
+  let best = null, bestScore = 0.3;
+  for (const pu of powerups) {
+    const d = dist(bot, pu);
+    // carrera perdida: si el enemigo está más cerca del orbe que él, no se juega la vida por un premio
+    // (una curación sí, pero solo si está desesperado)
+    if (en) {
+      const de = dist(en, pu);
+      if (pu.type.id !== 'curacion' && de < d + 60) continue;
+      if (pu.type.id === 'curacion' && de < d * 0.6 && hpFrac > 0.2) continue;
+    }
+    let want, maxD;
+    if (pu.type.id === 'curacion') {
+      if (hpFrac >= 0.92) continue;
+      want = (1 - hpFrac) * 2.4;
+      maxD = hpFrac < bot.fleeAt + 0.15 ? 950 : 420;
+    } else {
+      if (buffsOf(bot)[pu.type.id] > 2.5) continue;
+      want = 0.55 + bot.orbGreed * 0.6;
+      maxD = 320;
+    }
+    if (d > maxD) continue;
+    if (pu.life * bot.speed * 0.9 < d) continue;   // no llegaría antes de que desaparezca
+    const score = want / (1 + d / 260);
+    if (score > bestScore) { bestScore = score; best = pu; }
+  }
+  return best;
+}
+
+// Sitio para esconderse: justo detrás de un árbol/roca, al lado contrario del enemigo
+function findCoverSpot(bot, threat) {
+  let best = null, bestScore = Infinity;
+  const dBT = dist(bot, threat);
+  for (const o of obstacles) {
+    const dx = o.x - threat.x, dy = o.y - threat.y;
+    const dl = Math.hypot(dx, dy) || 1;
+    const off = o.r * 0.72 + bot.r + 12;
+    const sx = o.x + dx / dl * off, sy = o.y + dy / dl * off;
+    if (sx < 40 || sy < 40 || sx > WORLD_W - 40 || sy > WORLD_H - 40) continue;
+    const spot = { x: sx, y: sy };
+    const dBot = dist(bot, spot);
+    if (dBot > 700) continue;
+    if (dist(spot, threat) < dBT * 0.75) continue;                                   // no correr hacia el enemigo
+    if (obstacles.some(q => q !== o && dist(spot, q) < q.r * 0.72 + bot.r)) continue; // hueco ocupado
+    const score = dBot - 0.25 * dist(spot, threat);
+    if (score < bestScore) { bestScore = score; best = spot; }
+  }
+  return best;
+}
+
+// ¿Viene un disparo hacia mí? Devuelve hacia qué lado apartarse.
+function detectIncoming(bot) {
+  for (const p of projectiles) {
+    if (p.ownerRef === bot) continue;
+    const rx = bot.x - p.x, ry = bot.y - p.y;
+    const dx = Math.cos(p.angle), dy = Math.sin(p.angle);
+    const along = rx * dx + ry * dy;
+    if (along < 20 || along > 260 || along > p.life * p.speed) continue;
+    const s = -rx * dy + ry * dx;                       // cuánto se aparta el bot de la trayectoria
+    if (Math.abs(s) < bot.r + 9) { const sg = s >= 0 ? 1 : -1; return { x: -dy * sg, y: dx * sg }; }
+  }
+  return null;
+}
+
+// Ángulo de disparo, adelantándose al movimiento del objetivo (cada bot con su puntería)
+function aimAngle(bot, foe) {
+  let ax = foe.x, ay = foe.y;
+  if (bot.weaponDef.engine !== 'melee') {
+    const t = Math.min(0.6, dist(bot, foe) / 480);
+    ax += clamp(foe.vx || 0, -300, 300) * t * bot.aimLead;
+    ay += clamp(foe.vy || 0, -300, 300) * t * bot.aimLead;
+  }
+  return Math.atan2(ay - bot.y, ax - bot.x);
+}
+
+function updateBotBrain(bot, dt) {
+  bot.retargetTimer -= dt; bot.strafeTimer -= dt; bot.dodgeTimer -= dt; bot.dodgeCd -= dt;
+  bot.orbTimer -= dt; bot.stubbornTimer -= dt; bot.coverTimer -= dt; bot.flankTimer -= dt;
+  if (bot.shootCooldown > 0) bot.shootCooldown -= dt;
+  if (bot.attackAnim > 0) bot.attackAnim -= dt;
+  for (const k in bot.buffs) if (bot.buffs[k] > 0) bot.buffs[k] = Math.max(0, bot.buffs[k] - dt);
+
+  const hpFrac = bot.hp / bot.maxHp;
+  const enemy = nearestEnemy(bot);
+  if (bot.retargetTimer <= 0 || !bot.target || !bot.target.alive) { bot.target = chooseBotTarget(bot); bot.retargetTimer = 0.4 + Math.random() * 0.3; }
+  const target = bot.target;
+  const dEnemy = enemy ? dist(bot, enemy) : Infinity;
+  if (bot.orbTimer <= 0) { bot.orbTarget = BOT_TUNING.orbs ? pickOrbFor(bot) : null; bot.orbTimer = 0.5; }
+  if (bot.orbTarget && !powerups.includes(bot.orbTarget)) bot.orbTarget = null;
+  const orb = bot.orbTarget;
+
+  // ---- 1) ¿Qué toca hacer? ----
+  let state = 'atacar';
+  const scared = enemy && hpFrac < bot.fleeAt && bot.stubbornTimer <= 0;
+  if (scared) state = (orb && orb.type.id === 'curacion') ? 'curarse' : 'huir';
+  else if (orb && ((orb.type.id === 'curacion' && hpFrac < 0.6) || dEnemy > (bot.state === 'orbe' ? 100 : 140))) state = 'orbe'; // (histéresis: no cambia de idea por unos píxeles)
+  else if (!target) state = 'reposo';
+  if (state !== 'huir') bot.hideTime = 0;
+  bot.state = state;
+
+  // A quién apuntar: al que tiene delante; si huye, al que le persigue
+  const foe = (state === 'huir' || state === 'curarse') ? enemy : (target || enemy);
+
+  // ---- 2) Esquivar disparos (cada bot con su habilidad) ----
+  if (bot.dodgeTimer <= 0 && bot.dodgeCd <= 0) {
+    const inc = detectIncoming(bot);
+    if (inc) { bot.dodgeCd = 0.55; if (Math.random() < bot.dodgeSkill) { bot.dodgeTimer = 0.26; bot.dodgeVec = inc; } }
+  }
+
+  // ---- 3) Movimiento según el estado ----
+  let mx = 0, my = 0, speedMult = bot.buffs.velocidad > 0 ? 1.35 : 1;
+  if (state === 'orbe' || state === 'curarse') {
+    const a = angleTo(bot, orb);
+    mx = Math.cos(a); my = Math.sin(a);
+  } else if (state === 'huir') {
+    speedMult *= 1.05;
+    if (bot.coverTimer <= 0 || !bot.coverSpot) { bot.coverSpot = findCoverSpot(bot, enemy); bot.coverTimer = 0.7; }
+    if (bot.coverSpot) {
+      if (dist(bot, bot.coverSpot) > 14) { const a = angleTo(bot, bot.coverSpot); mx = Math.cos(a); my = Math.sin(a); }
+      else {
+        bot.hideTime += dt;                                              // ya está a cubierto: se queda quieto
+        if (bot.hideTime > BOT_TUNING.hideMax) { bot.stubbornTimer = BOT_TUNING.stubborn; bot.hideTime = 0; } // recupera los nervios y vuelve a la pelea
+        if (dEnemy < 110) bot.state = 'atacar';                          // le han encontrado: se defiende
+      }
+    } else {
+      const a = angleTo(enemy, bot) + Math.sin(performance.now() / 400 + bot.walkPhase) * 0.5; // sin escondite: huye en zigzag
+      mx = Math.cos(a); my = Math.sin(a);
+      const nx = bot.x + mx * 60, ny = bot.y + my * 60;
+      if (nx < 40 || ny < 40 || nx > WORLD_W - 40 || ny > WORLD_H - 40) { mx = 0; my = 0; bot.state = 'atacar'; } // acorralado: pelea
+    }
+  } else if (state === 'atacar' && foe) {
+    const d = dist(bot, foe), ang = angleTo(bot, foe);
+    const los = hasLineOfSight(bot, foe);
+    const isMelee = bot.weaponDef.engine === 'melee';
+    const desired = isMelee ? Math.max(bot.r + foe.r, (bot.weaponDef.meleeRange || 70) * 0.7)
+                  : bot.aiType === 'agresivo' ? Math.max(bot.r + foe.r + 20, bot.projRange * 0.3)
+                  : bot.projRange * 0.72;
+    if (!los) {
+      // no ve al enemigo (hay un obstáculo): lo rodea por un lado y cambia de lado si sigue sin verlo
+      if (bot.flankTimer <= 0) { bot.flankSide *= -1; bot.flankTimer = 1.4 + Math.random(); }
+      const a = ang + bot.flankSide * 0.95;
+      mx = Math.cos(a); my = Math.sin(a);
+    } else {
+      if (d > desired + 25) { mx += Math.cos(ang); my += Math.sin(ang); if (bot.aiType === 'agresivo') speedMult *= 1.15; }
+      else if (d < desired - 25 && !isMelee) { mx -= Math.cos(ang) * 0.8; my -= Math.sin(ang) * 0.8; }
+      // se mueve en zigzag para ser más difícil de acertar
+      if (bot.strafeTimer <= 0) { bot.strafeDir *= Math.random() < 0.7 ? -1 : 1; bot.strafeTimer = 0.8 + Math.random() * 1.4; }
+      const sw = (d <= desired + 60 ? 0.9 : 0.35) * (BOT_TUNING.strafe / 0.9);
+      mx += -Math.sin(ang) * bot.strafeDir * sw; my += Math.cos(ang) * bot.strafeDir * sw;
+    }
+  }
+  // esquive activo: manda sobre lo demás
+  if (bot.dodgeTimer > 0 && bot.dodgeVec) { mx = mx * 0.35 + bot.dodgeVec.x * 1.3; my = my * 0.35 + bot.dodgeVec.y * 1.3; speedMult *= 1.15; }
+
+  bot.moving = false;
+  const mag = Math.hypot(mx, my);
+  if (mag > 0.01) {
+    bot.x += (mx / mag) * bot.speed * speedMult * dt;
+    bot.y += (my / mag) * bot.speed * speedMult * dt;
+    bot.moving = true;
+    bot.walkPhase += dt * 11;
+  }
+  pushOutOfObstacles(bot);
+  bot.x = clamp(bot.x, bot.r, WORLD_W - bot.r); bot.y = clamp(bot.y, bot.r, WORLD_H - bot.r);
+
+  // ---- 4) Disparar (solo si lo ve y está a tiro) ----
+  if (foe) {
+    bot.angle = aimAngle(bot, foe);
+    if (dist(bot, foe) < bot.projRange * 0.98 && bot.shootCooldown <= 0 && hasLineOfSight(bot, foe)) shoot(bot, bot.angle, true);
+  }
+}
+
+// Pequeño rótulo sobre el bot cuando huye o va a por un orbe (para que se note que "piensa")
+function drawBotCue(b) {
+  let txt = null, col = '#fff';
+  if (b.state === 'huir') { txt = 'huyendo'; col = '#8fd3ff'; }
+  else if (b.state === 'curarse') { txt = 'busca vida'; col = '#7be08a'; }
+  else if (b.state === 'orbe') { txt = 'va a por un orbe'; col = '#ffd54f'; }
+  if (!txt) return;
+  ctx.save();
+  ctx.font = 'bold 10px -apple-system, "Segoe UI", Roboto, sans-serif';
+  ctx.textAlign = 'center'; ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,0.7)';
+  ctx.strokeText(txt, b.x, b.y - b.r - 22);
+  ctx.fillStyle = col; ctx.fillText(txt, b.x, b.y - b.r - 22);
+  ctx.restore();
 }
 
 function update(dt) {
@@ -2028,6 +2318,7 @@ function update(dt) {
     }
   }
 
+  trackVelocity(player, dt);
   bots.forEach(bot => {
     if (!bot.alive) {
       if (gameMode === 'arena') {
@@ -2037,29 +2328,8 @@ function update(dt) {
       // en Supervivencia los bots NO reaparecen: se quedan eliminados
       return;
     }
-    const target = findBotTarget(bot);
-    if (!target) { bot.moving = false; return; }
-    const d = dist(bot, target);
-    bot.angle = angleTo(bot, target);
-    bot.moving = false;
-    if (bot.aiType === 'agresivo') {
-      // Carga sin parar hacia el objetivo, nunca retrocede — se planta encima si hace falta
-      if (d > bot.r + target.r + 2) {
-        bot.x += Math.cos(bot.angle) * bot.speed * 1.15 * dt;
-        bot.y += Math.sin(bot.angle) * bot.speed * 1.15 * dt;
-        bot.moving = true;
-      }
-    } else {
-      // Cauteloso: se acerca si está lejos, retrocede si le pisan la distancia (kiting)
-      if (d > bot.projRange * 0.6) { bot.x += Math.cos(bot.angle) * bot.speed * dt; bot.y += Math.sin(bot.angle) * bot.speed * dt; bot.moving = true; }
-      else if (d < bot.projRange * 0.35) { bot.x -= Math.cos(bot.angle) * bot.speed * 0.6 * dt; bot.y -= Math.sin(bot.angle) * bot.speed * 0.6 * dt; bot.moving = true; }
-    }
-    if (bot.moving) bot.walkPhase += dt * 11;
-    pushOutOfObstacles(bot);
-    bot.x = clamp(bot.x, bot.r, WORLD_W - bot.r); bot.y = clamp(bot.y, bot.r, WORLD_H - bot.r);
-    if (bot.shootCooldown > 0) bot.shootCooldown -= dt;
-    if (bot.attackAnim > 0) bot.attackAnim -= dt;
-    if (d < bot.projRange && bot.shootCooldown <= 0) shoot(bot, bot.angle, true);
+    trackVelocity(bot, dt);
+    updateBotBrain(bot, dt);
   });
 
   // Cámara: en Supervivencia sigue al jugador por el mapa grande; en Arena, fija (mundo = lienzo)
@@ -2123,6 +2393,7 @@ function update(dt) {
 }
 
 function damageBot(bot, dmg) {
+  if (bot.buffs && bot.buffs.escudo > 0) dmg = Math.round(dmg * 0.4); // orbe de escudo: 60% menos de daño
   bot.hp -= dmg;
   if (bot.hp <= 0 && bot.alive) {
     bot.alive = false; bot.respawnTimer = 2.2;
@@ -2428,7 +2699,7 @@ function draw() {
   ctx.translate(-camera.x, -camera.y);
   drawArena();
   drawPowerups();
-  bots.forEach(b => { if (b.alive) { drawBot(b); drawHealthBar(b); } });
+  bots.forEach(b => { if (b.alive) { drawBot(b); drawBuffAuras(b, b.buffs); drawHealthBar(b); drawBotCue(b); } });
   if (player.alive) {
     drawPlayerTopDown(player, player.superActive && player.superEngine === 'giro');
     drawSuperEffect(player);
