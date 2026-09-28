@@ -220,6 +220,9 @@
   #hud { position: absolute; top: 10px; left: 10px; display: flex; flex-direction: column; gap: 6px; pointer-events: none; text-shadow: 1px 1px 2px #000; }
   .barBg { width: 200px; height: 16px; background: rgba(0,0,0,0.5); border: 2px solid #222; border-radius: 8px; overflow: hidden; }
   .barFill { height: 100%; transition: width 0.15s; }
+  #instructions:hover { opacity: 1 !important; }
+  #buffsBar { display: flex; gap: 6px; flex-wrap: wrap; max-width: 220px; min-height: 4px; }
+  .buff-chip { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: rgba(0,0,0,0.55); border: 1.5px solid; }
   #hpFill { background: linear-gradient(90deg,#4caf50,#8bc34a); width:100%; }
   #reloadFill { background: linear-gradient(90deg,#1e90c9,#4fd8f0); width:100%; }
   #superFill { background: linear-gradient(90deg,#ffd54f,#ff9800); width:0%; }
@@ -232,7 +235,7 @@
     color: #fff; font-size: 15px; padding: 4px 8px; cursor: pointer;
   }
   #centerMsg { position: absolute; top: 45%; left: 50%; transform: translate(-50%, -50%); font-size: 40px; font-weight: bold; text-shadow: 2px 2px 4px #000; color: #ffeb3b; pointer-events: none; display: none; }
-  #instructions { position: absolute; bottom: 10px; left: 10px; font-size: 12px; background: rgba(0,0,0,0.45); padding: 8px 12px; border-radius: 8px; line-height: 1.5; max-width: 260px; }
+  #instructions { transition: opacity 1s ease; position: absolute; bottom: 10px; left: 10px; font-size: 12px; background: rgba(0,0,0,0.45); padding: 8px 12px; border-radius: 8px; line-height: 1.5; max-width: 260px; }
   #touchFireBtn {
     position: absolute; bottom: 20px; right: 100px; z-index: 20;
     width: 68px; height: 68px; border-radius: 50%;
@@ -649,12 +652,14 @@
       <div class="barBg"><div id="reloadFill" class="barFill"></div></div>
       <div id="superText">Super: 0/5 golpes</div>
       <div class="barBg"><div id="superFill" class="barFill"></div></div>
+      <div id="buffsBar"></div>
     </div>
     <div id="scoreBoard">Rivales derrotados: <span id="kills">0</span> / <span id="killTarget">10</span></div>
     <button id="muteBtn">🔊</button>
     <div id="centerMsg"></div>
     <div id="instructions">
       <b>Autoapuntado activo:</b> el personaje apunta solo al rival más cercano<br>
+      <b>Orbes del mapa:</b> ❤️ curan · 🛡️ escudo · ⚡ velocidad · 🔥 munición<br>
       <b>Teclado/ratón:</b> WASD mover · botón azul o clic disparar · mantén el ratón para apuntar manualmente · Espacio super<br>
       <b>Táctil:</b> joystick izq. mover · toca el botón azul para disparar, o arrástralo para apuntar tú y soltar · botón cuadrado super
     </div>
@@ -1282,6 +1287,7 @@ function playSfx(type) {
   else if (type === 'click') tone(900, 0.045, 'square', sfxGain, t, 0.14);
   else if (type === 'thud') tone(110, 0.06, 'triangle', sfxGain, t, 0.12);
   else if (type === 'tick') tone(1300, 0.028, 'square', sfxGain, t, 0.05);
+  else if (type === 'pickup') { tone(700, 0.08, 'triangle', sfxGain, t, 0.22); tone(1050, 0.1, 'triangle', sfxGain, t + 0.06, 0.2); tone(1400, 0.12, 'triangle', sfxGain, t + 0.12, 0.18); }
   else if (type === 'reelStop') { tone(260, 0.09, 'square', sfxGain, t, 0.22); tone(780, 0.12, 'triangle', sfxGain, t + 0.04, 0.16); }
   else if (type === 'rareReveal') { [659, 784, 988, 1318].forEach((f, i) => tone(f, 0.16, 'triangle', sfxGain, t + i * 0.07, 0.22)); }
   else if (type === 'victory') { [523, 659, 784, 1046, 1318].forEach((f, i) => tone(f, 0.2, 'square', sfxGain, t + i * 0.12, 0.28)); }
@@ -1677,7 +1683,7 @@ function shoot(shooter, angle, isBot) {
   if (shooter === player && player.superActive) return;
 
   const weaponDef = shooter.weaponDef || null;
-  shooter.shootCooldown = shooter.shootRate * (weaponDef ? (weaponDef.cdMult || 1) : 1);
+  shooter.shootCooldown = shooter.shootRate * (weaponDef ? (weaponDef.cdMult || 1) : 1) * ((shooter === player && buffs.municion > 0) ? 0.6 : 1);
   shooter.attackAnim = 0.28;
   if (shooter === player) playShootSfx(weaponDef ? weaponDef.visual : 'hoja');
 
@@ -1688,7 +1694,7 @@ function shoot(shooter, angle, isBot) {
   let finalAngle = angle;
 
   if (weaponDef) {
-    damage = Math.round(damage * (weaponDef.dmgMult || 1));
+    damage = Math.round(damage * (weaponDef.dmgMult || 1) * ((shooter === player && buffs.municion > 0) ? 1.2 : 1));
     const precision = shooter.precision !== undefined ? shooter.precision : 0.8;
     const spread = (1 - precision) * 0.35;
     finalAngle = angle + (Math.random() - 0.5) * spread;
@@ -1785,7 +1791,164 @@ function tryActivateSuper() {
   }
 }
 
+// =====================================================================
+// ORBES DEL MAPA (power-ups)
+// =====================================================================
+const POWERUP_TYPES = [
+  { id: 'curacion',  label: 'Curación',  color: '#4caf50' },
+  { id: 'escudo',    label: 'Escudo',    color: '#4fa8e0', dur: 6 },
+  { id: 'velocidad', label: 'Velocidad', color: '#ffd54f', dur: 6 },
+  { id: 'municion',  label: 'Munición',  color: '#ff7a3d', dur: 7 }
+];
+const POWERUP_LIFETIME = 22;   // segundos que dura un orbe en el mapa si nadie lo coge
+const POWERUP_PICKUP_R = 18;   // radio del orbe (además del radio del jugador)
+const buffs = { escudo: 0, velocidad: 0, municion: 0 };
+let powerups = [];
+let floatingTexts = [];
+let powerupCfg = { max: 2, interval: 9, initial: 1 };
+let powerupSpawnTimer = 5;
+let lastBuffsHtml = '';
+
+function resetBuffs() { buffs.escudo = 0; buffs.velocidad = 0; buffs.municion = 0; }
+
+function spawnPowerup() {
+  if (powerups.length >= powerupCfg.max) return;
+  for (let attempt = 0; attempt < 30; attempt++) {
+    const x = rand(50, WORLD_W - 50), y = rand(50, WORLD_H - 50);
+    if (obstacles.some(o => dist({ x, y }, o) < o.r + 28)) continue;      // no dentro de árboles/rocas
+    if (dist({ x, y }, player) < 140) continue;                            // no encima del jugador
+    if (powerups.some(pu => dist({ x, y }, pu) < 90)) continue;            // no apilados
+    // si vas mal de vida, es más probable que salga una curación
+    let type;
+    if (player.hp < player.maxHp * 0.45 && Math.random() < 0.4) type = POWERUP_TYPES[0];
+    else type = POWERUP_TYPES[Math.floor(Math.random() * POWERUP_TYPES.length)];
+    powerups.push({ x, y, type, life: POWERUP_LIFETIME, phase: Math.random() * 6 });
+    return;
+  }
+}
+
+function initPowerups() {
+  powerups = []; floatingTexts = []; resetBuffs(); lastBuffsHtml = '';
+  powerupCfg = gameMode === 'survival' ? { max: 9, interval: 5, initial: 5 } : { max: 2, interval: 9, initial: 1 };
+  powerupSpawnTimer = powerupCfg.interval * 0.6;
+  for (let i = 0; i < powerupCfg.initial; i++) spawnPowerup();
+}
+
+function addFloatingText(x, y, text, color) { floatingTexts.push({ x, y, text, color, life: 1.1 }); }
+
+function collectPowerup(pu) {
+  const t = pu.type;
+  if (t.id === 'curacion') {
+    const gain = Math.min(player.maxHp - player.hp, Math.round(player.maxHp * 0.35));
+    player.hp += gain;
+    triggerFlash('#4caf50');
+    addFloatingText(player.x, player.y - 30, gain > 0 ? `+${gain} vida` : 'Vida completa', t.color);
+  } else {
+    buffs[t.id] = t.dur;
+    addFloatingText(player.x, player.y - 30, t.label + '!', t.color);
+  }
+  playSfx('pickup');
+}
+
+function updatePowerups(dt) {
+  // aparición periódica
+  powerupSpawnTimer -= dt;
+  if (powerupSpawnTimer <= 0) {
+    spawnPowerup();
+    powerupSpawnTimer = powerupCfg.interval * (0.8 + Math.random() * 0.4);
+  }
+  // vida, recogida
+  for (let i = powerups.length - 1; i >= 0; i--) {
+    const pu = powerups[i];
+    pu.life -= dt;
+    if (pu.life <= 0) { powerups.splice(i, 1); continue; }
+    if (player.alive && dist(player, pu) < player.r + POWERUP_PICKUP_R) {
+      // la curación no se desperdicia con la vida al máximo: se queda en el mapa
+      if (pu.type.id === 'curacion' && player.hp >= player.maxHp) continue;
+      collectPowerup(pu);
+      powerups.splice(i, 1);
+    }
+  }
+  // cuenta atrás de efectos y textos flotantes
+  for (const k in buffs) if (buffs[k] > 0) buffs[k] = Math.max(0, buffs[k] - dt);
+  for (let i = floatingTexts.length - 1; i >= 0; i--) {
+    floatingTexts[i].life -= dt; floatingTexts[i].y -= 28 * dt;
+    if (floatingTexts[i].life <= 0) floatingTexts.splice(i, 1);
+  }
+}
+
+// Iconos dibujados con formas (no emoji), para que se vean igual en cualquier dispositivo
+function drawPowerupGlyph(id, color) {
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  if (id === 'curacion') {
+    ctx.moveTo(0, 7); ctx.bezierCurveTo(-11, -1, -6, -9, 0, -3); ctx.bezierCurveTo(6, -9, 11, -1, 0, 7);
+  } else if (id === 'escudo') {
+    ctx.moveTo(-7, -7); ctx.lineTo(7, -7); ctx.lineTo(7, 2); ctx.quadraticCurveTo(7, 8, 0, 10); ctx.quadraticCurveTo(-7, 8, -7, 2);
+  } else if (id === 'velocidad') {
+    ctx.moveTo(3, -10); ctx.lineTo(-6, 1); ctx.lineTo(-1, 1); ctx.lineTo(-3, 10); ctx.lineTo(6, -2); ctx.lineTo(1, -2);
+  } else {
+    ctx.moveTo(0, -10); ctx.bezierCurveTo(9, -2, 8, 8, 0, 9); ctx.bezierCurveTo(-8, 8, -9, 0, -3, -4); ctx.bezierCurveTo(-2, -1, 0, -2, 0, -10);
+  }
+  ctx.closePath(); ctx.fill();
+}
+
+function drawPowerups() {
+  const now = performance.now() / 1000;
+  powerups.forEach(pu => {
+    if (pu.x < camera.x - 40 || pu.x > camera.x + W + 40 || pu.y < camera.y - 40 || pu.y > camera.y + H + 40) return;
+    if (pu.life < 5 && Math.floor(pu.life * 5) % 2 === 0) return; // parpadea cuando está a punto de desaparecer
+    const bob = Math.sin(now * 3 + pu.phase) * 3;
+    const col = pu.type.color;
+    ctx.save();
+    ctx.translate(pu.x, pu.y + bob);
+    ctx.shadowColor = col; ctx.shadowBlur = 16;
+    ctx.fillStyle = 'rgba(15,16,22,0.85)';
+    ctx.beginPath(); ctx.arc(0, 0, 15, 0, Math.PI * 2); ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.lineWidth = 3; ctx.strokeStyle = col;
+    ctx.beginPath(); ctx.arc(0, 0, 15, 0, Math.PI * 2); ctx.stroke();
+    // arco fino que se va vaciando: tiempo que le queda
+    ctx.lineWidth = 2; ctx.globalAlpha = 0.55;
+    ctx.beginPath(); ctx.arc(0, 0, 20, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (pu.life / POWERUP_LIFETIME)); ctx.stroke();
+    ctx.globalAlpha = 1;
+    drawPowerupGlyph(pu.type.id, col);
+    ctx.restore();
+  });
+}
+
+function drawBuffAuras(p) {
+  const now = performance.now() / 1000;
+  let ring = 0;
+  POWERUP_TYPES.forEach(t => {
+    if (!t.dur || buffs[t.id] <= 0) return;
+    ring++;
+    ctx.save();
+    ctx.strokeStyle = t.color; ctx.lineWidth = 2;
+    const fading = buffs[t.id] < 1.5 && Math.floor(buffs[t.id] * 6) % 2 === 0;
+    ctx.globalAlpha = fading ? 0.25 : 0.7;
+    ctx.setLineDash(t.id === 'velocidad' ? [6, 5] : []);
+    ctx.lineDashOffset = -now * 30;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.r + 4 + ring * 5, 0, Math.PI * 2); ctx.stroke();
+    ctx.restore();
+  });
+}
+
+function drawFloatingTexts() {
+  floatingTexts.forEach(f => {
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, f.life * 1.5);
+    ctx.font = 'bold 14px -apple-system, "Segoe UI", Roboto, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,0.75)';
+    ctx.strokeText(f.text, f.x, f.y);
+    ctx.fillStyle = f.color; ctx.fillText(f.text, f.x, f.y);
+    ctx.restore();
+  });
+}
+
 function update(dt) {
+  updatePowerups(dt);
   if (!player.superActive) {
     let dx = 0, dy = 0;
     if (keys['w']) dy -= 1; if (keys['s']) dy += 1;
@@ -1801,8 +1964,9 @@ function update(dt) {
 
     if (dx || dy) {
       const len = Math.hypot(dx, dy);
-      player.x += (dx / len) * player.speed * dt;
-      player.y += (dy / len) * player.speed * dt;
+      const spdMult = buffs.velocidad > 0 ? 1.35 : 1;
+      player.x += (dx / len) * player.speed * spdMult * dt;
+      player.y += (dy / len) * player.speed * spdMult * dt;
       player.moving = true; player.walkPhase += dt * 11;
     } else { player.moving = false; }
 
@@ -1978,6 +2142,7 @@ function damageBot(bot, dmg) {
   }
 }
 function damagePlayer(dmg) {
+  if (buffs.escudo > 0) dmg = Math.round(dmg * 0.4); // orbe de escudo: 60% menos de daño
   if (player.superActive && player.superEngine === 'escudo') {
     dmg = Math.round(dmg * (1 - (player.shieldReduction || 0.7)));
   }
@@ -1986,6 +2151,7 @@ function damagePlayer(dmg) {
   playSfx('damage');
   if (player.hp <= 0 && player.alive) {
     player.alive = false;
+    resetBuffs(); // al caer se pierden los efectos de los orbes
     if (gameMode === 'arena') {
       deathsThisMatch++;
       const livesLeft = MAX_LIVES - deathsThisMatch;
@@ -2023,6 +2189,11 @@ function updateHUD() {
   const superName = (player.superDef && player.superDef.name) || 'Super';
   superText.textContent = ready ? `¡${superName.toUpperCase()} LISTO!` : `${superName}: ${player.superCharge}/${player.superMax} golpes`;
   superBtn.classList.toggle('ready', ready);
+
+  // Efectos activos de orbes (con cuenta atrás)
+  const chips = POWERUP_TYPES.filter(t => t.dur && buffs[t.id] > 0)
+    .map(t => `<span class="buff-chip" style="border-color:${t.color};color:${t.color}">${t.label} ${Math.ceil(buffs[t.id])}s</span>`).join('');
+  if (chips !== lastBuffsHtml) { document.getElementById('buffsBar').innerHTML = chips; lastBuffsHtml = chips; }
 }
 
 function drawArena() {
@@ -2256,13 +2427,16 @@ function draw() {
   ctx.save();
   ctx.translate(-camera.x, -camera.y);
   drawArena();
+  drawPowerups();
   bots.forEach(b => { if (b.alive) { drawBot(b); drawHealthBar(b); } });
   if (player.alive) {
     drawPlayerTopDown(player, player.superActive && player.superEngine === 'giro');
     drawSuperEffect(player);
+    drawBuffAuras(player);
     drawHealthBar(player, 50);
   }
   projectiles.forEach(drawProjectile);
+  drawFloatingTexts();
   ctx.restore();
 
   // Los joysticks se dibujan en espacio de pantalla, no de mundo — por eso van fuera del translate
@@ -2313,12 +2487,14 @@ function startMatch(savedTraits, fusion, mode) {
     : `Rivales derrotados: <span id="kills">0</span> / <span id="killTarget">${TARGET_KILLS}</span><br>Vidas: <span id="livesLeft">${MAX_LIVES}</span>`;
   pushOutOfObstacles(player);
   bots.forEach(b => pushOutOfObstacles(b));
+  initPowerups();
   gameActive = false;
   showLoadingScreen(fusion);
 }
 
 // Pantalla de "Forjando tu Fusión": muestra a los 3 personajes reales de esta partida,
 // con sus retratos si existen, antes de entrar a la arena de verdad.
+let instructionsFadeTimer = null;
 const LOADING_TAGLINES = ['Forjando tu Fusión', 'Combinando arquetipos…', 'Repartiendo estadísticas…', 'Preparando la arena…'];
 function showLoadingScreen(fusion) {
   const badgesEl = document.getElementById('loadingBadges');
@@ -2357,6 +2533,11 @@ function showLoadingScreen(fusion) {
     showScreen('gameScreen');
     gameActive = true;
     startMusic();
+    // las instrucciones se atenúan a los 10 s para no tapar el mapa (pasa el ratón por encima para verlas)
+    const ins = document.getElementById('instructions');
+    ins.style.opacity = 1;
+    clearTimeout(instructionsFadeTimer);
+    instructionsFadeTimer = setTimeout(() => { ins.style.opacity = 0.22; }, 10000);
   }, 1900);
 }
 
