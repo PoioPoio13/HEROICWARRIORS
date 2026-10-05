@@ -244,7 +244,7 @@
   }
   #tutorialPanel {
     display: none; position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
-    width: min(520px, 92vw); background: rgba(10,11,16,0.92); border: 2px solid var(--accent);
+    width: min(450px, 92vw); background: rgba(10,11,16,0.92); border: 2px solid var(--accent);
     border-radius: 14px; padding: 12px 18px; text-align: center; box-shadow: 0 6px 22px -6px rgba(0,0,0,0.6); z-index: 25;
   }
   #tutorialPanel.active { display: block; }
@@ -1902,7 +1902,8 @@ function spawnPowerup() {
 
 function initPowerups() {
   powerups = []; floatingTexts = []; resetBuffs(); lastBuffsHtml = '';
-  powerupCfg = gameMode === 'survival' ? { max: 12, interval: 4.5, initial: 7 } : { max: 3, interval: 8, initial: 2 };
+  powerupCfg = gameMode === 'tutorial' ? { max: 0, interval: 1e9, initial: 0 }
+             : gameMode === 'survival' ? { max: 12, interval: 4.5, initial: 7 } : { max: 3, interval: 8, initial: 2 };
   powerupSpawnTimer = powerupCfg.interval * 0.6;
   for (let i = 0; i < powerupCfg.initial; i++) spawnPowerup();
 }
@@ -1955,7 +1956,7 @@ function updatePowerups(dt) {
     }
     if (!taken) {
       for (const b of bots) {
-        if (!b.alive) continue;
+        if (!b.alive || b.isDummy) continue; // el muñeco de entrenamiento no recoge orbes
         if (dist(b, pu) < b.r + POWERUP_PICKUP_R && !(pu.type.id === 'curacion' && b.hp >= b.maxHp)) {
           collectPowerupBot(b, pu); taken = true; break;
         }
@@ -2288,9 +2289,15 @@ function drawBotCue(b) {
 // =====================================================================
 // TUTORIAL GUIADO (solo la primera vez, con un personaje recién creado)
 // =====================================================================
+// Arma de práctica: daño fijo (sin multiplicadores), para que la cuenta de golpes sea siempre exacta
+const TUTORIAL_DAMAGE = 26;
+const TUTORIAL_WEAPON = { name: 'Arma de práctica', engine: 'proyectil', visual: 'hoja', color: '#c9c9c9', dmgMult: 1.0, cdMult: 1.0 };
+// El super necesita 5 golpes: el muñeco aguanta esos 5 y cae con el sexto (131 de vida, con 26 por golpe)
+const TUTORIAL_DUMMY_HP = TUTORIAL_DAMAGE * 5 + 1;
+
 function spawnTutorialDummy(x, y) {
   return {
-    x, y, r: 20, speed: 0, hp: 70, maxHp: 70, angle: Math.PI,
+    x, y, r: 20, speed: 0, hp: TUTORIAL_DUMMY_HP, maxHp: TUTORIAL_DUMMY_HP, angle: Math.PI,
     shootCooldown: 9999, shootRate: 9999, baseDamage: 0, precision: 1, projRange: 0,
     weaponDef: null, isDummy: true,
     alive: true, respawnTimer: 0, color: '#6b6b75',
@@ -2302,9 +2309,9 @@ function spawnTutorialDummy(x, y) {
 function buildTutorialFusion() {
   return {
     picks: [], cI: 2, cF: 2, cV: 2,
-    dmg: 26, moveSpeed: 230, reload: 1.1, range: 260, precision: 92,
+    dmg: TUTORIAL_DAMAGE, moveSpeed: 230, reload: 1.1, range: 260, precision: 92,
     vida: 240, rarity: 'Común', rangeLabel: 'Medio',
-    weapon: COMBAT_WEAPONS.find(w => w.engine === 'proyectil') || COMBAT_WEAPONS[0],
+    weapon: TUTORIAL_WEAPON,
     superDef: SUPERS.find(s => s.engine === 'giro') || SUPERS[0]
   };
 }
@@ -2315,8 +2322,8 @@ let tutorialOrbSpawned = false;
 
 const TUTORIAL_STEPS = [
   { text: 'Muévete con <b>WASD</b> (o el joystick en pantalla táctil) para dar una vuelta por el mapa.', check: () => tutorialProgress.moved },
-  { text: 'El personaje <b>apunta solo</b> al muñeco de entrenamiento. Dispara con <b>clic</b>, el <b>botón azul</b>, o manteniendo el ratón pulsado.', check: () => tutorialProgress.shots >= 1 },
-  { text: 'Cada golpe carga tu <b>Superataque</b>. En cuanto se llene la barra amarilla, actívalo con <b>Espacio</b> o el <b>botón cuadrado</b>.', check: () => tutorialProgress.superUsed },
+  { text: 'El personaje <b>apunta solo</b> al muñeco de entrenamiento. Dispara con <b>clic</b>, el <b>botón azul</b>, o manteniendo el ratón pulsado. Si cae, reaparece.', check: () => tutorialProgress.shots >= 1 },
+  { text: 'Cada golpe carga tu <b>Superataque</b> (hacen falta 5). En cuanto se llene la barra amarilla, actívalo con <b>Espacio</b> o el <b>botón cuadrado</b>.', check: () => tutorialProgress.superUsed },
   { text: 'Ha aparecido un <b>orbe</b> brillante en el mapa. Ve hasta él para recogerlo — dan curación, escudo, velocidad o munición.', check: () => tutorialProgress.orbCollected },
   { text: 'Ya sabes lo básico. <b>Remata al muñeco de entrenamiento</b> para terminar el tutorial.', check: () => bots[0] && !bots[0].alive }
 ];
@@ -2324,6 +2331,13 @@ const TUTORIAL_STEPS = [
 function startTutorial() {
   const saved = loadSavedTraits() || traits;
   startMatch(saved, buildTutorialFusion(), 'tutorial');
+}
+
+// Si el muñeco cae antes del último paso, vuelve a aparecer con la vida completa para seguir practicando
+function reviveTutorialDummy(d) {
+  d.alive = true; d.hp = d.maxHp;
+  addFloatingText(d.x, d.y - 34, 'El muñeco se recupera', '#9aa5b0');
+  playSfx('thud');
 }
 
 function beginTutorialSteps() {
@@ -2352,6 +2366,7 @@ function updateTutorial(dt) {
       tutorialStepIndex++;
       renderTutorialStep();
       playSfx('reelStop');
+      if (tutorialStepIndex === TUTORIAL_STEPS.length - 1 && bots[0] && !bots[0].alive) reviveTutorialDummy(bots[0]);
     } else {
       finishTutorial();
     }
@@ -2470,6 +2485,9 @@ function update(dt) {
       if (gameMode === 'arena') {
         bot.respawnTimer -= dt;
         if (bot.respawnTimer <= 0) Object.assign(bot, spawnBot());
+      } else if (gameMode === 'tutorial' && bot.isDummy && tutorialStepIndex < TUTORIAL_STEPS.length - 1) {
+        bot.respawnTimer -= dt;
+        if (bot.respawnTimer <= 0) reviveTutorialDummy(bot);
       }
       // en Supervivencia los bots NO reaparecen: se quedan eliminados
       return;
@@ -2542,7 +2560,7 @@ function damageBot(bot, dmg) {
   if (bot.buffs && bot.buffs.escudo > 0) dmg = Math.round(dmg * 0.4); // orbe de escudo: 60% menos de daño
   bot.hp -= dmg;
   if (bot.hp <= 0 && bot.alive) {
-    bot.alive = false; bot.respawnTimer = 2.2;
+    bot.alive = false; bot.respawnTimer = bot.isDummy ? 1.2 : 2.2;
     playSfx('botDeath');
     if (gameMode === 'arena') {
       kills++;
@@ -2904,7 +2922,8 @@ function startMatch(savedTraits, fusion, mode) {
   const badgeLabel = getActiveBadgeLabel();
   document.getElementById('gameTitle').textContent = `🪓 HEROIC GUARDIANS — ${badgeLabel ? badgeLabel + ' ' : ''}${savedTraits.name} · ${modeLabel}`;
   document.getElementById('gameSubtitle').textContent = `Fusión ${fusion.rarity}: ${fusionNames} · Alcance ${fusion.rangeLabel} · ${fusion.weapon.name} · Super: ${fusion.superDef.name}`;
-  document.getElementById('scoreBoard').innerHTML = gameMode === 'survival'
+  document.getElementById('scoreBoard').innerHTML = gameMode === 'tutorial' ? ''
+    : gameMode === 'survival'
     ? `Rivales vivos: <span id="kills">${bots.length}</span>`
     : `Rivales derrotados: <span id="kills">0</span> / <span id="killTarget">${TARGET_KILLS}</span><br>Vidas: <span id="livesLeft">${MAX_LIVES}</span>`;
   pushOutOfObstacles(player);
