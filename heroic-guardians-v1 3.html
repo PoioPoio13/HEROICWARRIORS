@@ -99,6 +99,28 @@
   #modeSelectScreen { flex-direction: column; align-items: center; justify-content: center; width: 100%; padding: 20px; text-align: center; }
   .mode-cards { display: flex; gap: 18px; flex-wrap: wrap; justify-content: center; max-width: 760px; }
 
+  #shopBtn, #trainBtn { background: var(--panel); color: var(--ink); border: 2px solid var(--line); border-radius: 12px; padding: 11px 26px; font-size: 14px; font-weight: 700; cursor: pointer; margin-top: 10px; min-width: 190px; transition: all 0.15s ease; }
+  #shopBtn:hover, #trainBtn:hover { border-color: var(--accent); transform: translateY(-1px); }
+  #trainScreen { flex-direction: column; align-items: center; padding: 26px 16px 40px; width: 100%; }
+  .tr-tabs { display: flex; gap: 8px; margin: 12px 0 16px; }
+  .tr-tabs button { background: var(--panel); border: 2px solid var(--line); color: var(--ink-dim); padding: 8px 18px; border-radius: 10px; cursor: pointer; font-weight: 700; }
+  .tr-tabs button.on { border-color: var(--accent); color: var(--ink); }
+  .tr-body { display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 640px; }
+  .tr-group { margin-top: 12px; display: flex; flex-direction: column; font-size: 13px; letter-spacing: 1px; text-transform: uppercase; }
+  .tr-group span { font-size: 11px; color: var(--ink-dim); text-transform: none; letter-spacing: 0; }
+  .tr-card { display: flex; align-items: center; gap: 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
+  .tr-card.done { opacity: 0.6; }
+  .tr-ico { font-size: 26px; width: 40px; text-align: center; }
+  .tr-main { flex: 1; min-width: 0; }
+  .tr-name { font-weight: 800; font-size: 14px; } .tr-name em { font-style: normal; color: var(--ink-dim); font-weight: 600; font-size: 12px; margin-left: 6px; }
+  .tr-desc { font-size: 12px; color: var(--ink); margin-top: 2px; } .tr-next { font-size: 11px; color: var(--ink-dim); margin-top: 2px; }
+  .tr-pips { display: flex; gap: 3px; margin-top: 6px; } .tr-pips i { width: 14px; height: 6px; border-radius: 3px; background: var(--panel-2, #2a2c36); } .tr-pips i.on { background: var(--accent); }
+  .tr-bar { height: 6px; background: var(--panel-2, #2a2c36); border-radius: 3px; margin-top: 6px; overflow: hidden; } .tr-bar i { display: block; height: 100%; background: var(--accent); }
+  .tr-btn { background: var(--accent); color: #12131a; border: none; border-radius: 10px; padding: 9px 14px; font-weight: 800; cursor: pointer; min-width: 78px; }
+  .tr-btn.off { background: var(--panel-2, #2a2c36); color: var(--ink-dim); cursor: not-allowed; } .tr-btn.max { background: #2f6b3e; color: #d8ffe0; cursor: default; } .tr-btn.claim { background: #ffb300; animation: pulseBtn 1s infinite alternate; }
+  @keyframes pulseBtn { to { transform: scale(1.06); } }
+  .up-mark { color: #7ddf8a; font-size: 11px; font-weight: 700; }
+
   /* ===== PANTALLA: TIENDA ===== */
   #shopScreen { flex-direction: column; align-items: center; padding: 26px 16px 40px; width: 100%; }
   .shop-balance { margin-top: 8px; font-size: 16px; font-weight: 800; color: var(--accent); }
@@ -646,7 +668,21 @@
   <p class="sub" id="statsLine" style="font-size: 12px; margin-top: -10px;"></p>
   <button id="playBtn">Jugar</button>
   <button id="shopBtn">🛒 Tienda</button>
+  <button id="trainBtn">💪 Entrenamiento</button>
   <button id="resetLink">Restablecer personaje (debug)</button>
+</div>
+
+<!-- ================= PANTALLA: ENTRENAMIENTO Y LOGROS ================= -->
+<div class="screen" id="trainScreen">
+  <div class="title-block">
+    <h1>Entrenamiento</h1>
+    <p>Mejoras permanentes para tu personaje, con una moneda distinta a los fragmentos</p>
+    <p class="shop-balance">⏱ <span id="trainHours">0</span> horas de entrenamiento</p>
+    <p style="font-size:12px;color:var(--ink-dim);margin-top:4px">Ganas horas jugando partidas (más por victorias, eliminaciones y tiempo) y cobrando logros</p>
+  </div>
+  <div class="tr-tabs"><button id="trainTabT" class="on">💪 Mejoras</button><button id="trainTabA">🏅 Logros</button></div>
+  <div class="tr-body" id="trainBody"></div>
+  <button id="trainBackBtn" style="margin-top: 20px; background: none; border: none; color: var(--ink-dim); text-decoration: underline; cursor: pointer; font-size: 13px;">Volver</button>
 </div>
 
 <!-- ================= PANTALLA: TIENDA (cosmética, sin ventaja de combate) ================= -->
@@ -799,9 +835,9 @@ function renderStatsLine() {
   const el = document.getElementById('statsLine');
   if (!el) return;
   const s = loadStats();
-  if (s.matches === 0) { el.textContent = 'Aún no has jugado ninguna partida'; return; }
+  if (s.matches === 0 && !s.hours) { el.textContent = 'Aún no has jugado ninguna partida'; return; }
   const badge = getActiveBadgeLabel();
-  el.innerHTML = `🏆 ${s.wins} victorias · 🔶 ${s.fragments} fragmentos · racha máxima ${s.bestStreak}${s.rarestFusion ? ` · Fusión más rara: ${s.rarestFusion}` : ''}${badge ? ` · ${badge}` : ''}`;
+  el.innerHTML = `🏆 ${s.wins} victorias · 🔶 ${s.fragments} fragmentos · ⏱ ${s.hours || 0} horas · racha máxima ${s.bestStreak}${s.rarestFusion ? ` · Fusión más rara: ${s.rarestFusion}` : ''}${badge ? ` · ${badge}` : ''}`;
 }
 
 // ---------- TIENDA (100% cosmética — nada de esto afecta a las estadísticas de la Fusión) ----------
@@ -1496,12 +1532,12 @@ function fillFusionResult(fusion) {
   rarityEl.style.background = RARITY_COLORS[fusion.rarity];
   rarityEl.style.color = '#12131a';
   document.getElementById('fusionStats').innerHTML = `
-    <div><div class="fusion-stat-label">Vida</div><div class="fusion-stat-value">${fusion.vida}</div></div>
-    <div><div class="fusion-stat-label">Daño</div><div class="fusion-stat-value">${fusion.dmg}</div></div>
-    <div><div class="fusion-stat-label">Vel. Movimiento</div><div class="fusion-stat-value">${fusion.moveSpeed}</div></div>
-    <div><div class="fusion-stat-label">Vel. Recarga</div><div class="fusion-stat-value">${fusion.reload}/s</div></div>
-    <div><div class="fusion-stat-label">Alcance</div><div class="fusion-stat-value">${fusion.rangeLabel} (${fusion.range})</div></div>
-    <div><div class="fusion-stat-label">Precisión</div><div class="fusion-stat-value">${fusion.precision}%</div></div>
+    <div><div class="fusion-stat-label">Vida</div><div class="fusion-stat-value">${fusion.vida}${upMark(fusion, 'vida')}</div></div>
+    <div><div class="fusion-stat-label">Daño</div><div class="fusion-stat-value">${fusion.dmg}${upMark(fusion, 'dmg')}</div></div>
+    <div><div class="fusion-stat-label">Vel. Movimiento</div><div class="fusion-stat-value">${fusion.moveSpeed}${upMark(fusion, 'moveSpeed')}</div></div>
+    <div><div class="fusion-stat-label">Vel. Recarga</div><div class="fusion-stat-value">${fusion.reload}/s${upMark(fusion, 'reload', d => d.toFixed(2))}</div></div>
+    <div><div class="fusion-stat-label">Alcance</div><div class="fusion-stat-value">${fusion.rangeLabel} (${fusion.range})${upMark(fusion, 'range')}</div></div>
+    <div><div class="fusion-stat-label">Precisión</div><div class="fusion-stat-value">${fusion.precision}%${upMark(fusion, 'precision')}</div></div>
     <div style="grid-column: 1 / -1;"><div class="fusion-stat-label">Arma</div><div class="fusion-stat-value">${fusion.weapon.name}</div></div>
     <div style="grid-column: 1 / -1;"><div class="fusion-stat-label">Superataque</div><div class="fusion-stat-value">${fusion.superDef.name}</div></div>
   `;
@@ -1540,7 +1576,7 @@ function finishRoulette(runId) {
 
 function startFusionFlow(mode) {
   selectedMode = mode;
-  currentFusion = generateFusion();
+  currentFusion = applyTraining(generateFusion());
   clearRouletteTimers();
   const runId = ++rouletteRunId;
 
@@ -1821,6 +1857,114 @@ accEl('accLogoutBtn').addEventListener('click', onLogoutClick);
 renderAccountUI();
 pullOnLoad();
 
+// =====================================================================
+// ENTRENAMIENTO + LOGROS — progresión permanente con "Horas de Entrenamiento" (⏱)
+// =====================================================================
+const TRAIN_DEFS = [
+  { id: 'minSpeed', grp: 'min', icon: '👟', name: 'Velocidad mínima', max: 10, base: 4, desc: l => l ? `Tu velocidad nunca baja de ${180 + 8 * l}` : 'Sin suelo de velocidad' },
+  { id: 'minRange', grp: 'min', icon: '🎯', name: 'Alcance mínimo', max: 10, base: 4, desc: l => l ? `Tu alcance nunca baja de ${70 + 20 * l}` : 'Sin suelo de alcance' },
+  { id: 'minDmg', grp: 'min', icon: '💥', name: 'Daño mínimo', max: 10, base: 5, desc: l => l ? `Tu daño nunca baja de ${Math.round(15 + 1.6 * l)}` : 'Sin suelo de daño' },
+  { id: 'minReload', grp: 'min', icon: '⏱️', name: 'Recarga mínima', max: 10, base: 5, desc: l => l ? `Tu recarga nunca baja de ${(0.6 + 0.04 * l).toFixed(2)}/s` : 'Sin suelo de recarga' },
+  { id: 'minPrec', grp: 'min', icon: '🔭', name: 'Precisión mínima', max: 10, base: 4, desc: l => l ? `Tu precisión nunca baja del ${70 + 2 * l}%` : 'Sin suelo de precisión' },
+  { id: 'minHp', grp: 'min', icon: '🛡️', name: 'Vida mínima', max: 10, base: 4, desc: l => l ? `Tu vida nunca baja de ${390 + 20 * l}` : 'Sin suelo de vida' },
+  { id: 'pSpeed', grp: 'pct', icon: '🦵', name: 'Piernas de acero', max: 10, base: 6, desc: l => `+${2 * l}% velocidad de movimiento` },
+  { id: 'pDmg', grp: 'pct', icon: '💪', name: 'Fuerza bruta', max: 10, base: 7, desc: l => `+${3 * l}% de daño` },
+  { id: 'pHp', grp: 'pct', icon: '❤️', name: 'Constitución', max: 10, base: 7, desc: l => `+${3 * l}% de vida` },
+  { id: 'pReload', grp: 'pct', icon: '🤚', name: 'Manos rápidas', max: 10, base: 6, desc: l => `+${(2.5 * l).toFixed(1).replace('.0', '')}% velocidad de recarga` },
+  { id: 'super', grp: 'ext', icon: '⚡', name: 'Supercarga', max: 6, base: 12, desc: l => `Superataque tras ${5 - Math.floor(l / 3)} golpes (base 5)` },
+  { id: 'regen', grp: 'ext', icon: '🌿', name: 'Regeneración', max: 10, base: 8, desc: l => l ? `Recuperas ${(l * 0.1).toFixed(1)}% de vida por segundo` : 'Sin regeneración' },
+  { id: 'loot', grp: 'ext', icon: '🔶', name: 'Botín', max: 10, base: 6, desc: l => `+${5 * l}% fragmentos por partida` }
+];
+const TRAIN_GROUPS = { min: ['Mínimos', 'Suben el suelo de tu Fusión: si te toca una mala, nunca baja de aquí'], pct: ['Potenciadores', 'Mejoran el resultado de cualquier Fusión'], ext: ['Extras', 'Ventajas especiales'] };
+function trainCost(d, lvl) { return Math.round(d.base * (1 + lvl * 0.55)); }
+function trainState() { const s = loadStats(); s.hours = s.hours || 0; s.train = s.train || {}; s.ach = s.ach || {}; return s; }
+function trainLvl(id) { return (loadStats().train || {})[id] || 0; }
+function rangeLabelFor(r) { return r < 125 ? 'Corto' : r < 255 ? 'Medio' : 'Largo'; }
+function applyTraining(f) {
+  const T = loadStats().train || {}, L = id => T[id] || 0;
+  f.base = { dmg: f.dmg, moveSpeed: f.moveSpeed, reload: f.reload, range: f.range, precision: f.precision, vida: f.vida };
+  if (L('minSpeed')) f.moveSpeed = Math.max(f.moveSpeed, 180 + 8 * L('minSpeed'));
+  if (L('minRange')) f.range = Math.max(f.range, 70 + 20 * L('minRange'));
+  if (L('minDmg')) f.dmg = Math.max(f.dmg, Math.round(15 + 1.6 * L('minDmg')));
+  if (L('minReload')) f.reload = Math.max(f.reload, 0.6 + 0.04 * L('minReload'));
+  if (L('minPrec')) f.precision = Math.max(f.precision, 70 + 2 * L('minPrec'));
+  if (L('minHp')) f.vida = Math.max(f.vida, 390 + 20 * L('minHp'));
+  f.moveSpeed = Math.round(f.moveSpeed * (1 + 0.02 * L('pSpeed')));
+  f.dmg = Math.round(f.dmg * (1 + 0.03 * L('pDmg')));
+  f.vida = Math.round(f.vida * (1 + 0.03 * L('pHp')));
+  f.reload = +(f.reload * (1 + 0.025 * L('pReload'))).toFixed(2);
+  f.precision = Math.min(99, Math.round(f.precision));
+  f.range = Math.round(f.range); f.rangeLabel = rangeLabelFor(f.range);
+  f.trained = true;
+  return f;
+}
+function upMark(f, k, fmt) { if (!f.base || !(f[k] > f.base[k] + 1e-9)) return ''; const d = f[k] - f.base[k]; return ` <span class="up-mark">▲ +${fmt ? fmt(d) : Math.round(d)}</span>`; }
+
+// ---------- LOGROS ----------
+const RANK_N = RARITY_RANK;
+const ACH_DEFS = [
+  { id: 'm1', icon: '🎮', name: 'Primera partida', desc: 'Juega 1 partida', goal: 1, cur: s => s.matches, hours: 3 },
+  { id: 'm10', icon: '🎮', name: 'Aficionado', desc: 'Juega 10 partidas', goal: 10, cur: s => s.matches, hours: 8 },
+  { id: 'm50', icon: '🎮', name: 'Habitual', desc: 'Juega 50 partidas', goal: 50, cur: s => s.matches, hours: 25, frag: 100 },
+  { id: 'm200', icon: '🎮', name: 'Veterano', desc: 'Juega 200 partidas', goal: 200, cur: s => s.matches, hours: 80, frag: 300 },
+  { id: 'w1', icon: '🏆', name: 'Primera victoria', desc: 'Gana 1 partida', goal: 1, cur: s => s.wins, hours: 5 },
+  { id: 'w10', icon: '🏆', name: 'Ganador', desc: 'Gana 10 partidas', goal: 10, cur: s => s.wins, hours: 15, frag: 60 },
+  { id: 'w50', icon: '🏆', name: 'Campeón', desc: 'Gana 50 partidas', goal: 50, cur: s => s.wins, hours: 50, frag: 250 },
+  { id: 'w150', icon: '🏆', name: 'Leyenda', desc: 'Gana 150 partidas', goal: 150, cur: s => s.wins, hours: 120, frag: 600 },
+  { id: 'k25', icon: '⚔️', name: 'Cazador', desc: 'Derrota a 25 rivales', goal: 25, cur: s => s.totalKills, hours: 6 },
+  { id: 'k150', icon: '⚔️', name: 'Verdugo', desc: 'Derrota a 150 rivales', goal: 150, cur: s => s.totalKills, hours: 20, frag: 80 },
+  { id: 'k600', icon: '⚔️', name: 'Azote de la arena', desc: 'Derrota a 600 rivales', goal: 600, cur: s => s.totalKills, hours: 60, frag: 250 },
+  { id: 'k2000', icon: '⚔️', name: 'Imparable', desc: 'Derrota a 2000 rivales', goal: 2000, cur: s => s.totalKills, hours: 150, frag: 700 },
+  { id: 's3', icon: '🔥', name: 'En racha', desc: 'Racha de 3 victorias', goal: 3, cur: s => s.bestStreak, hours: 10 },
+  { id: 's6', icon: '🔥', name: 'Racha ardiente', desc: 'Racha de 6 victorias', goal: 6, cur: s => s.bestStreak, hours: 30, frag: 120 },
+  { id: 's12', icon: '🔥', name: 'Invencible', desc: 'Racha de 12 victorias', goal: 12, cur: s => s.bestStreak, hours: 90, frag: 400 },
+  { id: 'rE', icon: '💎', name: 'Fusión épica', desc: 'Consigue una Fusión Épica', goal: 1, cur: s => (s.rarestFusion && RANK_N[s.rarestFusion] >= 2) ? 1 : 0, hours: 15, frag: 80 },
+  { id: 'rL', icon: '💎', name: 'Fusión legendaria', desc: 'Consigue una Fusión Legendaria', goal: 1, cur: s => (s.rarestFusion && RANK_N[s.rarestFusion] >= 3) ? 1 : 0, hours: 40, frag: 200 },
+  { id: 'rM', icon: '💎', name: 'Fusión mítica', desc: 'Consigue una Fusión Mítica', goal: 1, cur: s => (s.rarestFusion && RANK_N[s.rarestFusion] >= 4) ? 1 : 0, hours: 100, frag: 500 },
+  { id: 'sh10', icon: '🛍️', name: 'Coleccionista', desc: 'Compra 10 objetos de la tienda', goal: 10, cur: s => loadShop().owned.length, hours: 10 },
+  { id: 'sh40', icon: '🛍️', name: 'Gran coleccionista', desc: 'Compra 40 objetos de la tienda', goal: 40, cur: s => loadShop().owned.length, hours: 40, frag: 200 },
+  { id: 'sh100', icon: '🛍️', name: 'Tienda vaciada', desc: 'Compra 100 objetos de la tienda', goal: 100, cur: s => loadShop().owned.length, hours: 120, frag: 500 },
+  { id: 'tr10', icon: '🏋️', name: 'En forma', desc: 'Sube 10 niveles de entrenamiento', goal: 10, cur: s => Object.values(s.train || {}).reduce((a, b) => a + b, 0), hours: 12 },
+  { id: 'tr50', icon: '🏋️', name: 'Atleta', desc: 'Sube 50 niveles de entrenamiento', goal: 50, cur: s => Object.values(s.train || {}).reduce((a, b) => a + b, 0), hours: 50, frag: 200 },
+  { id: 'tr120', icon: '🏋️', name: 'Maestro del entrenamiento', desc: 'Sube 120 niveles de entrenamiento', goal: 120, cur: s => Object.values(s.train || {}).reduce((a, b) => a + b, 0), hours: 0, frag: 1000 }
+];
+let trainTab = 'train';
+function renderTrain() {
+  const s = trainState();
+  document.getElementById('trainHours').textContent = s.hours;
+  const box = document.getElementById('trainBody'); box.innerHTML = '';
+  document.getElementById('trainTabT').classList.toggle('on', trainTab === 'train'); document.getElementById('trainTabA').classList.toggle('on', trainTab === 'ach');
+  const claimable = ACH_DEFS.filter(a => !s.ach[a.id] && a.cur(s) >= a.goal).length;
+  document.getElementById('trainTabA').textContent = '🏅 Logros' + (claimable ? ` (${claimable})` : '');
+  if (trainTab === 'train') {
+    ['min', 'pct', 'ext'].forEach(g => {
+      const h = document.createElement('div'); h.className = 'tr-group'; h.innerHTML = `<b>${TRAIN_GROUPS[g][0]}</b><span>${TRAIN_GROUPS[g][1]}</span>`; box.appendChild(h);
+      TRAIN_DEFS.filter(d => d.grp === g).forEach(d => {
+        const lvl = s.train[d.id] || 0, maxed = lvl >= d.max, cost = trainCost(d, lvl);
+        const card = document.createElement('div'); card.className = 'tr-card';
+        let pips = ''; for (let i = 0; i < d.max; i++) pips += `<i class="${i < lvl ? 'on' : ''}"></i>`;
+        card.innerHTML = `<div class="tr-ico">${d.icon}</div><div class="tr-main"><div class="tr-name">${d.name} <em>Nv ${lvl}/${d.max}</em></div><div class="tr-desc">${d.desc(lvl)}</div>${!maxed ? `<div class="tr-next">Siguiente: ${d.desc(lvl + 1)}</div>` : ''}<div class="tr-pips">${pips}</div></div>`;
+        const b = document.createElement('button'); b.className = 'tr-btn';
+        if (maxed) { b.textContent = 'MÁX'; b.disabled = true; b.classList.add('max'); }
+        else { b.textContent = `⏱ ${cost}`; if (s.hours < cost) { b.disabled = true; b.classList.add('off'); }
+          b.addEventListener('click', () => { const t = trainState(); const c = trainCost(d, t.train[d.id] || 0); if (t.hours < c || (t.train[d.id] || 0) >= d.max) return; t.hours -= c; t.train[d.id] = (t.train[d.id] || 0) + 1; saveStats(t); playSfx('super'); renderTrain(); renderStatsLine(); }); }
+        card.appendChild(b); box.appendChild(card);
+      });
+    });
+  } else {
+    ACH_DEFS.forEach(a => {
+      const cur = Math.min(a.cur(s), a.goal), done = !!s.ach[a.id], ready = !done && cur >= a.goal;
+      const card = document.createElement('div'); card.className = 'tr-card' + (done ? ' done' : '');
+      card.innerHTML = `<div class="tr-ico">${a.icon}</div><div class="tr-main"><div class="tr-name">${a.name} <em>${cur}/${a.goal}</em></div><div class="tr-desc">${a.desc}</div><div class="tr-bar"><i style="width:${cur / a.goal * 100}%"></i></div><div class="tr-next">Recompensa: ${a.hours ? '⏱ ' + a.hours : ''}${a.hours && a.frag ? ' · ' : ''}${a.frag ? '🔶 ' + a.frag : ''}</div></div>`;
+      const b = document.createElement('button'); b.className = 'tr-btn';
+      if (done) { b.textContent = 'Cobrado ✓'; b.disabled = true; b.classList.add('max'); }
+      else if (ready) { b.textContent = 'Cobrar'; b.classList.add('claim'); b.addEventListener('click', () => { const t = trainState(); if (t.ach[a.id]) return; t.ach[a.id] = true; t.hours += a.hours || 0; t.fragments = (t.fragments || 0) + (a.frag || 0); saveStats(t); playSfx('victory'); renderTrain(); renderStatsLine(); }); }
+      else { b.textContent = '🔒'; b.disabled = true; b.classList.add('off'); }
+      card.appendChild(b); box.appendChild(card);
+    });
+  }
+}
+
 // ---------- PANTALLA DE TIENDA ----------
 const SHOP_CATEGORY_LABELS = { skin: 'Tonos de piel', hair: 'Colores de pelo', outfit: 'Colores de ropa', hairstyle: 'Peinados', accessory: 'Accesorios de cabeza', cape: 'Capas', weapon: 'Aspecto del arma (cosmético)', aura: 'Auras', trail: 'Estelas al caminar', pet: 'Mascotas', shot: 'Efectos de disparo', badge: 'Insignias de nombre' };
 const SHOP_ORDER = ['skin', 'hair', 'outfit', 'hairstyle', 'accessory', 'cape', 'weapon', 'aura', 'trail', 'pet', 'shot', 'badge'];
@@ -1918,6 +2062,10 @@ function renderShop() {
   });
 }
 
+document.getElementById('trainBtn').addEventListener('click', () => { initAudio(); playSfx('click'); trainTab = 'train'; renderTrain(); showScreen('trainScreen'); });
+document.getElementById('trainBackBtn').addEventListener('click', () => { playSfx('click'); showScreen('welcomeBack'); renderStatsLine(); });
+document.getElementById('trainTabT').addEventListener('click', () => { trainTab = 'train'; renderTrain(); });
+document.getElementById('trainTabA').addEventListener('click', () => { trainTab = 'ach'; renderTrain(); });
 document.getElementById('shopBtn').addEventListener('click', () => {
   initAudio(); playSfx('click');
   renderShop();
@@ -3851,6 +3999,7 @@ function update(dt) {
   }
   if (gameMode === 'tutorial') updateTutorial(dt);
   updatePowerups(dt);
+  if (player.alive && player.regen && player.hp < player.maxHp) player.hp = Math.min(player.maxHp, player.hp + player.maxHp * player.regen * dt);
   if (!player.superActive) {
     let dx = 0, dy = 0;
     if (keys['w']) dy -= 1; if (keys['s']) dy += 1;
@@ -4752,6 +4901,7 @@ function startMatch(savedTraits, fusion, mode) {
   player.x = WORLD_W / 2; player.y = WORLD_H / 2;
   player.respawnTimer = 0;
   player.superCharge = 0; player.superActive = false; player.superEngine = null; player.alive = true;
+  { const Tt = (gameMode === 'tutorial') ? {} : (loadStats().train || {}); player.superMax = 5 - Math.floor((Tt.super || 0) / 3); player.regen = (Tt.regen || 0) * 0.001; }
   kills = 0;
   deathsThisMatch = 0;
   projectiles.length = 0;
@@ -4847,8 +4997,11 @@ function endMatch(won) {
   else { stats.losses++; stats.currentStreak = 0; }
   const fusionRarity = player.fusion.rarity;
   if (!stats.rarestFusion || RARITY_RANK[fusionRarity] > RARITY_RANK[stats.rarestFusion]) stats.rarestFusion = fusionRarity;
-  const fragmentsEarned = 10 + killsThisMatch * (gameMode === 'ball' ? 15 : 4) + (won ? 40 : 0);
+  const lootLv = (stats.train || {}).loot || 0;
+  const fragmentsEarned = Math.round((10 + killsThisMatch * (gameMode === 'ball' ? 15 : 4) + (won ? 40 : 0)) * (1 + 0.05 * lootLv));
   stats.fragments += fragmentsEarned;
+  const hoursEarned = Math.max(1, Math.round(1 + parseFloat(elapsed) / 45 + killsThisMatch * (gameMode === 'ball' ? 1.5 : 0.6) + (won ? 4 : 0)));
+  stats.hours = (stats.hours || 0) + hoursEarned;
   saveStats(stats);
 
   document.getElementById('endTitle').textContent = won ? '¡Victoria!' : (gameMode === 'ball' ? 'Derrota' : 'Has caído');
@@ -4860,6 +5013,7 @@ function endMatch(won) {
     <div><div class="fusion-stat-label">Tiempo de partida</div><div class="fusion-stat-value">${elapsed}s</div></div>
     <div style="grid-column: 1 / -1;"><div class="fusion-stat-label">Tu Fusión</div><div class="fusion-stat-value">${player.fusion.rarity}: ${player.fusion.picks.map(p => p.name).join(' + ')}</div></div>
     <div style="grid-column: 1 / -1;"><div class="fusion-stat-label">Fragmentos ganados</div><div class="fusion-stat-value">🔶 +${fragmentsEarned} (total: ${stats.fragments})</div></div>
+    <div style="grid-column: 1 / -1;"><div class="fusion-stat-label">Horas de entrenamiento ganadas</div><div class="fusion-stat-value">⏱ +${hoursEarned} (total: ${stats.hours})</div></div>
   `;
   showScreen('matchEndScreen');
 }
