@@ -3203,7 +3203,178 @@ function updateHUD() {
   if (chips !== lastBuffsHtml) { document.getElementById('buffsBar').innerHTML = chips; lastBuffsHtml = chips; }
 }
 
+// =====================================================================
+// MAPA 2.0: terreno generado por código (hierba con manchas, caminos, flores, piedras), árboles y rocas con volumen,
+// sombras, valla perimetral y viñeta. El terreno se pinta UNA vez al empezar la partida (rápido durante el juego).
+// =====================================================================
+let terrain = null;
+let vignetteGrad = null;
+function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function makeCanvas(w, h) { const c = document.createElement('canvas'); c.width = Math.max(1, Math.ceil(w)); c.height = Math.max(1, Math.ceil(h)); return c; }
+
+function makeTreeSprite(o, R) {
+  const S = Math.ceil(o.r * 3.4), c = makeCanvas(S, S), g = c.getContext('2d'), cx = S / 2, cy = S / 2 - 2, r = o.r;
+  const rr = (a, b) => a + R() * (b - a);
+  // tronco asomando por abajo
+  g.fillStyle = '#4a3420'; g.beginPath(); g.roundRect(cx - 4, cy + r * 0.45, 8, r * 0.8, 3); g.fill();
+  g.fillStyle = 'rgba(255,255,255,0.12)'; g.fillRect(cx - 3, cy + r * 0.5, 2, r * 0.6);
+  const greens = [['#1f5a2a', '#38803a'], ['#256b2e', '#43914a'], ['#1a4f27', '#2f7a38']];
+  const lobes = [];
+  for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4 + rr(-0.2, 0.2); lobes.push({ x: cx + Math.cos(a) * r * 0.55, y: cy + Math.sin(a) * r * 0.5, r: r * rr(0.5, 0.62) }); }
+  lobes.push({ x: cx, y: cy, r: r * 0.78 });
+  lobes.forEach((l, i) => {
+    const [d, lt] = greens[i % greens.length];
+    const gr = g.createRadialGradient(l.x - l.r * 0.35, l.y - l.r * 0.4, 1, l.x, l.y, l.r);
+    gr.addColorStop(0, lt); gr.addColorStop(1, d);
+    g.fillStyle = gr; g.beginPath(); g.arc(l.x, l.y, l.r, 0, Math.PI * 2); g.fill();
+  });
+  g.strokeStyle = 'rgba(8,30,14,0.45)'; g.lineWidth = 1.5;
+  lobes.slice(0, 8).forEach(l => { g.beginPath(); g.arc(l.x, l.y, l.r, Math.PI * 0.15, Math.PI * 0.85); g.stroke(); });
+  // reflejos de hojas
+  for (let i = 0; i < 16; i++) {
+    const a = rr(0, Math.PI * 2), d = rr(0.1, 0.8) * r; g.fillStyle = `rgba(190,230,110,${rr(0.15, 0.4)})`;
+    g.beginPath(); g.ellipse(cx + Math.cos(a) * d - r * 0.12, cy + Math.sin(a) * d - r * 0.16, rr(2, 4.5), rr(1.2, 2.4), rr(0, 3), 0, Math.PI * 2); g.fill();
+  }
+  // algunas frutas/flores en ciertos árboles
+  if (R() < 0.3) { g.fillStyle = '#ef5350'; for (let i = 0; i < 5; i++) { const a = rr(0, 6.28), d = rr(0.2, 0.8) * r; g.beginPath(); g.arc(cx + Math.cos(a) * d, cy + Math.sin(a) * d, 2.2, 0, Math.PI * 2); g.fill(); } }
+  return c;
+}
+function makeRockSprite(o, R) {
+  const S = Math.ceil(o.r * 3), c = makeCanvas(S, S), g = c.getContext('2d'), cx = S / 2, cy = S / 2, r = o.r * 1.05;
+  const rr = (a, b) => a + R() * (b - a);
+  const n = 9, pts = [];
+  for (let i = 0; i < n; i++) { const a = i * Math.PI * 2 / n + rr(-0.15, 0.15); pts.push([cx + Math.cos(a) * r * rr(0.82, 1.1), cy + Math.sin(a) * r * rr(0.7, 0.95)]); }
+  const poly = (arr) => { g.beginPath(); arr.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.closePath(); };
+  const gr = g.createLinearGradient(cx - r, cy - r, cx + r, cy + r); gr.addColorStop(0, '#b7b8b2'); gr.addColorStop(0.55, '#8d8e88'); gr.addColorStop(1, '#5e5f5b');
+  g.fillStyle = gr; poly(pts); g.fill();
+  // facetas
+  g.fillStyle = 'rgba(255,255,255,0.22)'; poly([[cx, cy], pts[7], pts[8], pts[0]]); g.fill();
+  g.fillStyle = 'rgba(255,255,255,0.14)'; poly([[cx, cy], pts[0], pts[1], pts[2]]); g.fill();
+  g.fillStyle = 'rgba(0,0,0,0.22)'; poly([[cx, cy], pts[3], pts[4], pts[5]]); g.fill();
+  g.fillStyle = 'rgba(0,0,0,0.3)'; poly([[cx, cy], pts[4], pts[5], pts[6]]); g.fill();
+  g.strokeStyle = 'rgba(20,20,20,0.5)'; g.lineWidth = 1.6; poly(pts); g.stroke();
+  g.strokeStyle = 'rgba(30,30,30,0.35)'; g.lineWidth = 1.2;
+  g.beginPath(); g.moveTo(cx - r * 0.1, cy - r * 0.3); g.lineTo(cx + r * 0.12, cy); g.lineTo(cx - r * 0.05, cy + r * 0.3); g.stroke();
+  // musgo
+  g.fillStyle = 'rgba(86,140,60,0.65)';
+  for (let i = 0; i < 6; i++) { const p = pts[Math.floor(R() * n)]; g.beginPath(); g.ellipse(p[0] * 0.8 + cx * 0.2, p[1] * 0.8 + cy * 0.2, rr(2, 5), rr(1.5, 3.5), rr(0, 3), 0, Math.PI * 2); g.fill(); }
+  return c;
+}
+
+function buildTerrain(mode) {
+  const w = WORLD_W, h = WORLD_H, c = makeCanvas(w, h), g = c.getContext('2d');
+  const seed = mode === 'ball' ? 4242 : (Math.floor(Math.random() * 1e6) + 1);
+  const R = mulberry32(seed), rr = (a, b) => a + R() * (b - a), area = w * h;
+  const ball = mode === 'ball';
+  // --- hierba base y manchas de color ---
+  g.fillStyle = ball ? '#3c6a38' : '#3d6b3a'; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < area / 6500; i++) {
+    const x = rr(0, w), y = rr(0, h), rad = rr(50, 150), light = R() < 0.5, col = light ? 'rgba(135,185,85,' : 'rgba(14,52,28,';
+    const gr = g.createRadialGradient(x, y, 0, x, y, rad); gr.addColorStop(0, col + (ball ? '0.12)' : '0.24)')); gr.addColorStop(1, col + '0)');
+    g.fillStyle = gr; g.fillRect(x - rad, y - rad, rad * 2, rad * 2);
+  }
+  // --- campo de fútbol: franjas segadas ---
+  if (ball) {
+    const L = FIELD_L, Rr = w - FIELD_R, n = 16, sw = (Rr - L) / n;
+    for (let i = 0; i < n; i++) { g.fillStyle = i % 2 ? 'rgba(0,30,0,0.13)' : 'rgba(180,230,120,0.1)'; g.fillRect(L + i * sw, 0, sw + 1, h); }
+  } else {
+    // --- caminos de tierra ---
+    const path = (pts, wid) => {
+      g.lineCap = 'round'; g.lineJoin = 'round';
+      const draw = (col, lw) => { g.strokeStyle = col; g.lineWidth = lw; g.beginPath(); g.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length - 1; i += 2) g.quadraticCurveTo(pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1]); g.stroke(); };
+      draw('rgba(70,52,28,0.28)', wid + 18); draw('rgba(142,110,66,0.95)', wid); draw('rgba(172,140,92,0.6)', wid * 0.55);
+      for (let k = 0; k < 120; k++) { /* piedrecitas y huellas en el camino */ }
+    };
+    const paths = mode === 'survival'
+      ? [[[0, h * 0.5], [w * 0.2, h * 0.3], [w * 0.5, h * 0.5], [w * 0.8, h * 0.7], [w, h * 0.5]], [[w * 0.5, 0], [w * 0.4, h * 0.3], [w * 0.5, h * 0.5], [w * 0.6, h * 0.8], [w * 0.5, h]], [[0, h * 0.85], [w * 0.15, h * 0.7], [w * 0.3, h * 0.78], [w * 0.4, h * 0.9], [w * 0.45, h]]]
+      : [[[0, h * 0.62], [w * 0.28, h * 0.4], [w * 0.55, h * 0.66], [w * 0.8, h * 0.5], [w, h * 0.58]]];
+    paths.forEach(p => path(p, 34));
+    // claro central
+    const cg = g.createRadialGradient(w / 2, h / 2, 10, w / 2, h / 2, Math.min(w, h) * 0.28); cg.addColorStop(0, 'rgba(150,200,100,0.22)'); cg.addColorStop(1, 'rgba(150,200,100,0)');
+    g.fillStyle = cg; g.fillRect(0, 0, w, h);
+  }
+  // --- matas de hierba ---
+  const blades = ['#2a5a2c', '#2f6a32', '#4f8f45', '#6aa755', '#244f26'];
+  g.lineCap = 'round'; g.lineWidth = 1.3;
+  for (let i = 0; i < area / (ball ? 260 : 150); i++) {
+    const x = rr(0, w), y = rr(0, h); g.strokeStyle = blades[Math.floor(R() * blades.length)]; g.globalAlpha = rr(0.35, 0.8);
+    g.beginPath(); g.moveTo(x, y); g.lineTo(x + rr(-2.5, 2.5), y - rr(3, 7)); g.moveTo(x + 2, y + 1); g.lineTo(x + 2 + rr(-2, 3), y - rr(2, 5)); g.stroke();
+  }
+  g.globalAlpha = 1;
+  if (!ball) {
+    // --- flores en grupos ---
+    const fcols = ['#fff7d6', '#ffd54f', '#f48fb1', '#ce93d8', '#ffffff', '#ff8a65'];
+    for (let i = 0; i < area / 9000; i++) {
+      const cx = rr(30, w - 30), cy = rr(30, h - 30), col = fcols[Math.floor(R() * fcols.length)], n = 5 + Math.floor(R() * 7);
+      for (let k = 0; k < n; k++) { const x = cx + rr(-16, 16), y = cy + rr(-12, 12); g.fillStyle = col; g.beginPath(); g.arc(x, y, rr(1.4, 2.4), 0, Math.PI * 2); g.fill(); g.fillStyle = '#ffeb3b'; g.beginPath(); g.arc(x, y, 0.7, 0, Math.PI * 2); g.fill(); }
+    }
+    // --- piedrecitas ---
+    for (let i = 0; i < area / 7000; i++) { const x = rr(10, w - 10), y = rr(10, h - 10), s = rr(1.5, 3.8); g.fillStyle = 'rgba(0,0,0,0.25)'; g.beginPath(); g.ellipse(x + 1, y + 1.5, s, s * 0.6, 0, 0, Math.PI * 2); g.fill(); g.fillStyle = R() < 0.5 ? '#a9a9a2' : '#8c8b84'; g.beginPath(); g.ellipse(x, y, s, s * 0.7, 0, 0, Math.PI * 2); g.fill(); }
+  }
+  // --- sombras de árboles y rocas (pegadas al suelo) + sprites ---
+  obstacles.forEach(o => {
+    o.sprite = o.type === 'tree' ? makeTreeSprite(o, R) : makeRockSprite(o, R);
+    g.fillStyle = 'rgba(0,0,0,0.28)'; g.beginPath();
+    if (o.type === 'tree') g.ellipse(o.x + o.r * 0.45, o.y + o.r * 0.62, o.r * 1.12, o.r * 0.75, 0, 0, Math.PI * 2);
+    else g.ellipse(o.x + o.r * 0.3, o.y + o.r * 0.55, o.r * 1.1, o.r * 0.6, 0, 0, Math.PI * 2);
+    g.fill();
+  });
+  // --- marcas del campo y porterías ---
+  if (ball) {
+    const L = FIELD_L, Rr = w - FIELD_R, cy = h / 2;
+    g.strokeStyle = 'rgba(255,255,255,0.75)'; g.lineWidth = 3;
+    g.strokeRect(L + 1.5, 4, Rr - L - 3, h - 8);
+    g.beginPath(); g.moveTo(w / 2, 4); g.lineTo(w / 2, h - 4); g.stroke();
+    g.beginPath(); g.arc(w / 2, cy, 70, 0, Math.PI * 2); g.stroke();
+    g.fillStyle = 'rgba(255,255,255,0.8)'; g.beginPath(); g.arc(w / 2, cy, 4, 0, Math.PI * 2); g.fill();
+    g.lineWidth = 2; g.strokeStyle = 'rgba(255,255,255,0.45)'; g.setLineDash([10, 8]);
+    g.strokeRect(L, cy - 150, 150, 300); g.strokeRect(Rr - 150, cy - 150, 150, 300); g.setLineDash([]);
+    g.strokeStyle = 'rgba(255,255,255,0.6)'; g.lineWidth = 2;
+    g.strokeRect(L, cy - 80, 54, 160); g.strokeRect(Rr - 54, cy - 80, 54, 160);
+    // porterías: red, postes y color de equipo
+    [[0, FIELD_L, '#4fa8e0', 1], [Rr, FIELD_R, '#e05050', -1]].forEach(([x0, wd, col, dirn]) => {
+      g.fillStyle = '#0e1016'; g.fillRect(x0, cy - GOAL_W / 2, wd, GOAL_W);
+      g.fillStyle = col; g.globalAlpha = 0.25; g.fillRect(x0, cy - GOAL_W / 2, wd, GOAL_W); g.globalAlpha = 1;
+      g.strokeStyle = 'rgba(255,255,255,0.28)'; g.lineWidth = 1;
+      for (let k = 0; k <= wd; k += 8) { g.beginPath(); g.moveTo(x0 + k, cy - GOAL_W / 2); g.lineTo(x0 + k, cy + GOAL_W / 2); g.stroke(); }
+      for (let k = 0; k <= GOAL_W; k += 8) { g.beginPath(); g.moveTo(x0, cy - GOAL_W / 2 + k); g.lineTo(x0 + wd, cy - GOAL_W / 2 + k); g.stroke(); }
+      const lineX = dirn > 0 ? x0 + wd : x0;
+      g.strokeStyle = '#f5f5f5'; g.lineWidth = 6; g.lineCap = 'round'; g.beginPath(); g.moveTo(lineX, cy - GOAL_W / 2); g.lineTo(lineX, cy + GOAL_W / 2); g.stroke();
+      g.fillStyle = col; [cy - GOAL_W / 2, cy + GOAL_W / 2].forEach(py => { g.beginPath(); g.arc(lineX, py, 7, 0, Math.PI * 2); g.fill(); g.strokeStyle = '#fff'; g.lineWidth = 2; g.stroke(); });
+    });
+    // vallas publicitarias arriba y abajo
+    const adCols = ['#e53935', '#1e88e5', '#fdd835', '#43a047', '#fb8c00', '#8e24aa'];
+    const adw = (Rr - L) / 18;
+    for (let i = 0; i < 18; i++) { g.fillStyle = adCols[i % adCols.length]; g.fillRect(L + i * adw + 1, 0, adw - 2, 7); g.fillRect(L + i * adw + 1, h - 7, adw - 2, 7); g.fillStyle = 'rgba(255,255,255,0.35)'; g.fillRect(L + i * adw + 4, 2, adw - 10, 2); g.fillRect(L + i * adw + 4, h - 5, adw - 10, 2); }
+    // exterior (detrás de las porterías): césped oscuro de grada
+    g.fillStyle = 'rgba(0,0,0,0.35)'; g.fillRect(0, 0, 0, 0);
+  } else {
+    // --- valla de madera alrededor del mapa ---
+    const post = (x, y) => { g.fillStyle = 'rgba(0,0,0,0.3)'; g.fillRect(x - 2, y + 2, 7, 7); g.fillStyle = '#6b4a2b'; g.fillRect(x - 3, y - 3, 6, 9); g.fillStyle = '#8a6540'; g.fillRect(x - 3, y - 3, 2, 9); };
+    g.fillStyle = 'rgba(10,30,14,0.28)'; g.fillRect(0, 0, w, 14); g.fillRect(0, h - 14, w, 14); g.fillRect(0, 0, 14, h); g.fillRect(w - 14, 0, 14, h);
+    g.strokeStyle = '#5a3d22'; g.lineWidth = 3;
+    [[0, 7, w, 7], [0, h - 7, w, h - 7], [7, 0, 7, h], [w - 7, 0, w - 7, h]].forEach(([x1, y1, x2, y2]) => { g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke(); });
+    for (let x = 0; x <= w; x += 44) { post(x, 7); post(x, h - 7); }
+    for (let y = 0; y <= h; y += 44) { post(7, y); post(w - 7, y); }
+  }
+  return { canvas: c };
+}
+function drawTerrainAndObstacles() {
+  const m = 14, sx = Math.max(0, Math.floor(camera.x - m)), sy = Math.max(0, Math.floor(camera.y - m));
+  const sw = Math.min(terrain.canvas.width - sx, W + 2 * m), sh = Math.min(terrain.canvas.height - sy, H + 2 * m);
+  ctx.drawImage(terrain.canvas, sx, sy, sw, sh, sx, sy, sw, sh);
+  obstacles.forEach(o => {
+    if (o.x < camera.x - 70 || o.x > camera.x + W + 70 || o.y < camera.y - 70 || o.y > camera.y + H + 70) return;
+    if (o.sprite) ctx.drawImage(o.sprite, o.x - o.sprite.width / 2, o.y - o.sprite.height / 2 + (o.type === 'tree' ? 2 : 0));
+  });
+}
+function drawVignette() {
+  if (!vignetteGrad) { vignetteGrad = ctx.createRadialGradient(W / 2, H / 2, H * 0.38, W / 2, H / 2, Math.hypot(W, H) * 0.56); vignetteGrad.addColorStop(0, 'rgba(0,0,0,0)'); vignetteGrad.addColorStop(1, 'rgba(0,10,0,0.4)'); }
+  ctx.fillStyle = vignetteGrad; ctx.fillRect(0, 0, W, H);
+}
+
 function drawArena() {
+  if (terrain) { drawTerrainAndObstacles(); return; }
   if (gameMode === 'ball') { drawPitch(); obstacles.forEach(o => { if (o.type === 'tree') { ctx.fillStyle = '#2e4a24'; ctx.beginPath(); ctx.arc(o.x, o.y, o.r, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#5b3a24'; ctx.fillRect(o.x - 4, o.y + o.r - 6, 8, 12); } else { ctx.fillStyle = '#7d7d78'; ctx.beginPath(); ctx.ellipse(o.x, o.y, o.r, o.r * 0.75, 0, 0, Math.PI * 2); ctx.fill(); } }); return; }
   ctx.fillStyle = '#3c5a34'; ctx.fillRect(camera.x, camera.y, W, H);
   ctx.strokeStyle = 'rgba(0,0,0,0.05)';
@@ -3628,6 +3799,7 @@ function draw() {
   drawFloatingTexts();
   ctx.restore();
 
+  drawVignette();
   // Los joysticks se dibujan en espacio de pantalla, no de mundo — por eso van fuera del translate
   drawJoystick(moveTouch, '#ffffff');
 }
@@ -3668,6 +3840,7 @@ function startMatch(savedTraits, fusion, mode) {
     bots = [spawnBot(), spawnBot()];
   }
   camera.x = 0; camera.y = 0;
+  terrain = buildTerrain(gameMode);
 
   player.traits = savedTraits;
   player.fusion = fusion;
