@@ -139,6 +139,8 @@
   #matchEndScreen { flex-direction: column; align-items: center; justify-content: center; width: 100%; text-align: center; padding: 20px; }
 
   /* ===== PANTALLA: ELECCIÓN DE MODO ===== */
+  #rankScreen { flex-direction: column; align-items: center; justify-content: flex-start; width: 100%; padding: 20px; }
+  .rank-me { border-color: var(--accent) !important; } .rank-val { font-size: 20px; font-weight: 800; color: var(--accent); min-width: 44px; text-align: right; }
   .diff-row { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 4px 0 2px; flex-wrap: wrap; font-size: 13px; color: var(--ink-dim); }
   .diff-row button { background: var(--panel); color: var(--ink); border: 2px solid var(--line); border-radius: 999px; padding: 7px 16px; font-weight: 700; cursor: pointer; font-size: 13px; }
   .diff-row button.on { background: var(--accent); color: #1a1006; border-color: var(--accent); }
@@ -593,7 +595,7 @@
   #accountChipBtn:hover { border-color: var(--accent); }
   #settingsModal { position: fixed; inset: 0; background: rgba(0,0,0,.7); z-index: 100; display: none; align-items: center; justify-content: center; padding: 16px; }
   #settingsModal.open { display: flex; }
-  .set-row { display: flex; align-items: center; gap: 10px; margin-top: 14px; font-size: 14px; } .set-row input[type=range] { flex: 1; } .set-row b { width: 38px; text-align: right; font-size: 12px; color: var(--ink-dim); }
+  .set-row { display: flex; align-items: center; gap: 10px; margin-top: 14px; font-size: 14px; } .set-row input[type=range] { flex: 1; } .set-row select { margin-left:auto; background:#0f1015; color:var(--ink); border:1px solid var(--line); border-radius:6px; padding:5px; } .set-row b { width: 38px; text-align: right; font-size: 12px; color: var(--ink-dim); }
   #settingsBtn { background: var(--panel); color: var(--ink); border: 2px solid var(--line); border-radius: 12px; padding: 11px 26px; font-size: 14px; font-weight: 700; cursor: pointer; margin-top: 10px; min-width: 190px; }
   #accountModal { position: fixed; inset: 0; background: rgba(0,0,0,.7); z-index: 100; display: none; align-items: center; justify-content: center; padding: 16px; }
   #accountModal.open { display: flex; }
@@ -648,6 +650,8 @@
   <label class="set-row">📳 Vibración (Android) <input type="checkbox" id="setVib"></label>
   <label class="set-row">🎨 Color de tu tarjeta de equipo <input type="color" id="setCardColor"></label>
   <label class="set-row">Usar mi color (en vez del fondo de la tienda) <input type="checkbox" id="setUseCard"></label>
+  <label class="set-row">🌐 Idioma / Language <select id="setLang"><option value="auto">Auto</option><option value="es">Español</option><option value="en">English</option></select></label>
+  <label class="set-row">🏆 Aparecer en el ranking online <input type="checkbox" id="setRank"></label>
   <button id="setDone" style="width:100%;margin-top:14px;padding:11px;background:var(--accent);color:#1a1006;border:none;border-radius:8px;font-weight:700;cursor:pointer">Listo</button>
 </div></div>
 <div id="accountModal"><div class="acc-box">
@@ -691,6 +695,7 @@
   <button id="playBtn">Jugar</button>
   <button id="shopBtn">🛒 Tienda</button>
   <button id="trainBtn">💪 Entrenamiento</button>
+  <button id="rankBtn">🏆 Ranking y amigos</button>
   <button id="settingsBtn">⚙️ Ajustes</button>
   <button id="fsBtn">⛶ Pantalla completa</button>
   <button id="resetLink">Restablecer personaje (debug)</button>
@@ -707,6 +712,12 @@
   <div class="tr-tabs"><button id="trainTabD" class="on">📅 Diarias</button><button id="trainTabT">💪 Mejoras</button><button id="trainTabA">🏅 Logros</button><button id="trainTabP">🎖 Pase</button></div>
   <div class="tr-body" id="trainBody"></div>
   <button id="trainBackBtn" style="margin-top: 20px; background: none; border: none; color: var(--ink-dim); text-decoration: underline; cursor: pointer; font-size: 13px;">Volver</button>
+</div>
+
+<div class="screen" id="rankScreen">
+  <div class="title-block"><h1>Ranking</h1><p>Compite con jugadores de todo el mundo y con tus amigos</p></div>
+  <div class="tr-body" id="rankBody"></div>
+  <button id="rankBackBtn" style="margin-top: 20px; background: none; border: none; color: var(--ink-dim); text-decoration: underline; cursor: pointer; font-size: 13px;">Volver</button>
 </div>
 
 <!-- ================= PANTALLA: TIENDA (cosmética, sin ventaja de combate) ================= -->
@@ -1564,10 +1575,10 @@ function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
   document.body.dataset.screen = id;
-  fitScreen();
+  fitScreen(); screenMusic(id);
 }
 // En móviles en horizontal (poca altura) las pantallas de menú se encogen para verse enteras, sin tener que bajar.
-const FIT_SKIP = ['gameScreen', 'shopScreen', 'trainScreen', 'loadingScreen', 'teamIntroScreen'];
+const FIT_SKIP = ['gameScreen', 'shopScreen', 'trainScreen', 'loadingScreen', 'teamIntroScreen', 'rankScreen'];
 function fitScreen() {
   const el = document.querySelector('.screen.active'); if (!el) return;
   document.querySelectorAll('.screen').forEach(x => { x.style.zoom = ''; });
@@ -1824,7 +1835,7 @@ const localBackend = {
   async load(uid) { const a = readJSON(LOCAL_ACCOUNTS_KEY, {})[uid]; return a && a.bundle ? { data: a.bundle, updatedAt: a.updated } : null; },
   async save(uid, data, updatedAt) { const all = readJSON(LOCAL_ACCOUNTS_KEY, {}); if (!all[uid]) throw { code: 'local/bad' }; all[uid].bundle = data; all[uid].updated = updatedAt; writeJSON(LOCAL_ACCOUNTS_KEY, all); },
   async resetPassword() { throw { code: 'local/nomail' }; },
-  async deleteAccount(uid, email, pass) { await this.signIn(email, pass); const all = readJSON(LOCAL_ACCOUNTS_KEY, {}); delete all[uid]; writeJSON(LOCAL_ACCOUNTS_KEY, all); }
+  async deleteAccount(uid, email, pass) { await this.signIn(email, pass); try { const b = readJSON('hgLocalBoard', {}); delete b[uid]; writeJSON('hgLocalBoard', b); } catch (e) {} const all = readJSON(LOCAL_ACCOUNTS_KEY, {}); delete all[uid]; writeJSON(LOCAL_ACCOUNTS_KEY, all); }
 };
 
 let _fb = null;
@@ -1852,6 +1863,7 @@ const cloudBackend = {
     const { auth, db } = await fb(); const u = auth.currentUser; if (!u) throw { code: 'auth/requires-recent-login' };
     await u.reauthenticateWithCredential(firebase.auth.EmailAuthProvider.credential(email, pass));
     try { await db.collection('players').doc(uid).delete(); } catch (e) {}
+    try { await db.collection('leaderboard').doc(uid).delete(); } catch (e) {}
     await u.delete();
   }
 };
@@ -2076,7 +2088,7 @@ function renderTrain() {
       card.innerHTML = `<div class="tr-ico">${a.icon}</div><div class="tr-main"><div class="tr-name">${a.name} <em>${cur}/${a.goal}</em></div><div class="tr-desc">${a.desc}</div><div class="tr-bar"><i style="width:${cur / a.goal * 100}%"></i></div><div class="tr-next">Recompensa: ${a.hours ? '⏱ ' + a.hours : ''}${a.hours && a.frag ? ' · ' : ''}${a.frag ? '🔶 ' + a.frag : ''}</div></div>`;
       const b = document.createElement('button'); b.className = 'tr-btn';
       if (done) { b.textContent = 'Cobrado ✓'; b.disabled = true; b.classList.add('max'); }
-      else if (ready) { b.textContent = 'Cobrar'; b.classList.add('claim'); b.addEventListener('click', () => { const t = trainState(); if (t.ach[a.id]) return; t.ach[a.id] = true; t.hours += a.hours || 0; t.fragments = (t.fragments || 0) + (a.frag || 0); saveStats(t); playSfx('victory'); renderTrain(); renderStatsLine(); }); }
+      else if (ready) { b.textContent = 'Cobrar'; b.classList.add('claim'); b.addEventListener('click', () => { const t = trainState(); if (t.ach[a.id]) return; t.ach[a.id] = true; t.hours += a.hours || 0; t.fragments = (t.fragments || 0) + (a.frag || 0); saveStats(t); playSfx('levelup'); renderTrain(); renderStatsLine(); }); }
       else { b.textContent = '🔒'; b.disabled = true; b.classList.add('off'); }
       card.appendChild(b); box.appendChild(card);
     });
@@ -2087,12 +2099,272 @@ function renderTrain() {
 // MISIONES DIARIAS + RACHA DE ENTRADA + AJUSTES
 // =====================================================================
 const SETTINGS_KEY = 'heroicGuardiansSettings';
-const DEFAULT_SETTINGS = { music: 100, sfx: 100, vibrate: true, touch: 100, cardColor: '#ff7a1a', useCardColor: false, difficulty: 'normal' };
+const DEFAULT_SETTINGS = { music: 100, sfx: 100, vibrate: true, touch: 100, cardColor: '#ff7a1a', useCardColor: false, difficulty: 'normal', rankOptIn: false, lang: 'auto' };
 let settings = Object.assign({}, DEFAULT_SETTINGS, (() => { try { return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}; } catch (e) { return {}; } })());
 function saveSettings() { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (e) {} markLocalChange(); }
+const I18N_EN = {
+// ---- HTML estático ----
+'4 oleadas de rivales cada vez más duras, con un jefe en la 2 y en la 4. 3 vidas y recuperas vida entre oleadas.':'4 waves of increasingly tough rivals, with a boss on waves 2 and 4. 3 lives, and you recover health between waves.',
+'Ajustes':'Settings','Autoapuntado activo:':'Auto-aim active:','Ayuda':'Help','Bienvenido de vuelta':'Welcome back',
+'Calidad actual: representación vectorial procedural. Estos mismos rasgos alimentarán, más adelante, un retrato estilo anime generado con IA.':'Current quality: procedural vector art. These same traits will later feed an AI-generated anime-style portrait.',
+'Cerrar':'Close','Cerrar sesión':'Log out','Color de pelo':'Hair color','Color de ropa':'Outfit color',
+'Compite con jugadores de todo el mundo y con tus amigos':'Compete with players worldwide and with your friends',
+'Confirmar y guardar personaje':'Confirm and save character','Continuar':'Continue',
+'Contraseña (mín. 8 caracteres)':'Password (min. 8 characters)','Correo (p. ej. tunombre@gmail.com)':'Email (e.g. yourname@gmail.com)',
+'Crea tu personaje':'Create your character','Crear cuenta':'Create account','Dificultad de los rivales:':'Rival difficulty:',
+'Disparar':'Fire','Elige un modo antes de generar tu Fusión':'Pick a mode before generating your Fusion',
+'Eliminar definitivamente':'Delete permanently','Eliminar mi cuenta':'Delete my account','Entrar a la arena':'Enter the arena',
+'Entrenamiento':'Training','Es opcional: puedes jugar sin cuenta. Con cuenta, tu progreso te sigue a cualquier sitio.':'Optional: you can play without an account. With an account, your progress follows you anywhere.',
+'Escribe tu contraseña para confirmar':'Type your password to confirm','Escribe tu nombre':'Type your name','Estilo de combate':'Combat style',
+'Esto solo se pregunta una vez — se guarda automáticamente':'This is only asked once — it saves automatically',
+'Forjando tu Fusión':'Forging your Fusion','Fusión: —':'Fusion: —',
+'Ganas horas jugando partidas (más por victorias, eliminaciones y tiempo) y cobrando logros':'You earn hours by playing matches (more for wins, eliminations and time) and by claiming achievements',
+'Generando tu Fusión':'Generating your Fusion','Gira el móvil en horizontal para jugar':'Rotate your phone to landscape to play','Girando la ruleta…':'Spinning the wheel…',
+'Has derrotado a suficientes rivales':'You have defeated enough rivals','Iniciar sesión':'Log in','Jugar':'Play','Jugar otra vez':'Play again','Listo':'Done',
+'Mantente solo dentro de la zona para sumar puntos. Gana quien llegue a 40 o tenga más a los 100 s.':'Stay alone inside the zone to score points. First to 40 wins, or whoever has more at 100 s.',
+'Mapa clásico y partidas rápidas: gana quien derrote a 6 rivales. Reapareces al morir.':'Classic map, quick matches: first to defeat 6 rivals wins. You respawn when you die.',
+'Mapa grande con 8 rivales que también luchan entre ellos y una tormenta que se va cerrando. Sin reaparecer: gana quien quede en pie.':'Big map with 8 rivals who also fight each other, and a closing storm. No respawns: last one standing wins.',
+'Mejoras permanentes para tu personaje, con una moneda distinta a los fragmentos':'Permanent upgrades for your character, using a different currency than shards',
+'Orbes del mapa:':'Map orbs:','Pantalla completa':'Fullscreen','Paso 1 de 5':'Step 1 of 5','Peinado':'Hairstyle','Política de privacidad':'Privacy policy',
+'Ranking':'Leaderboard','Recarga lista':'Reload ready','Repite la contraseña':'Repeat the password','Restablecer personaje (debug)':'Reset character (debug)',
+'Rivales derrotados:':'Rivals defeated:','Saltar animación':'Skip animation','Saltar tutorial':'Skip tutorial',
+'Se borrará tu cuenta y todo tu progreso (fragmentos, horas, objetos y estadísticas), tanto en la nube como en este dispositivo. No se puede deshacer.':'Your account and all your progress (shards, hours, items and stats) will be deleted, both in the cloud and on this device. This cannot be undone.',
+'Sesión iniciada como':'Logged in as','Super: 0/5 golpes':'Super: 0/5 hits','Teclado/ratón:':'Keyboard/mouse:','Tienda':'Shop',
+'Toca el círculo de cualquier objeto para probártelo antes de comprar':'Tap the circle on any item to try it on before buying',
+'Toca para continuar':'Tap to continue','Todo aquí es puramente cosmético — nada afecta a tus estadísticas de Fusión':'Everything here is purely cosmetic — nothing affects your Fusion stats',
+'Tono de piel':'Skin tone','Tu cuenta':'Your account','Tu personaje ya está guardado — listo para entrar a la arena':'Your character is saved — ready to enter the arena','Táctil:':'Touch:',
+'Tú y 2 aliados contra 3 rivales. Mete el balón en su portería a tiros o a empujones. Mejor de 3 rondas de 45 s, un gol por ronda.':'You and 2 allies against 3 rivals. Get the ball into their goal by shooting or shoving. Best of 3 rounds of 45 s, one goal per round.',
+'Usa una contraseña distinta a la de tu Gmail.':'Use a password different from your Gmail one.','Usar mi color (en vez del fondo de la tienda)':'Use my color (instead of the shop background)',
+'Vida':'Health','Volver':'Back','Volver al menú':'Back to menu',
+'WASD mover · botón azul o clic disparar · mantén el ratón para apuntar manualmente · Espacio super':'WASD move · blue button or click to shoot · hold the mouse to aim manually · Space for super',
+'el personaje apunta solo al rival más cercano':'the character auto-aims at the nearest rival','fragmentos':'shards','horas de entrenamiento':'training hours',
+'joystick izq. mover · toca el botón azul para disparar, o arrástralo para apuntar tú y soltar · botón cuadrado super':'left joystick to move · tap the blue button to fire, or drag it to aim yourself and release · square button for super',
+'¡Tutorial completado! 🎉':'Tutorial complete! 🎉','¡Victoria!':'Victory!','¿Olvidaste la contraseña?':'Forgot your password?','¿Qué prefieres jugar?':'What do you want to play?',
+'Modo sin conexión a la nube: la cuenta funciona solo en este dispositivo hasta que se active el servidor en línea.':'Cloud offline mode: the account works only on this device until the online server is enabled.',
+'Modo Arena':'Arena Mode','Normal':'Normal','Modo 3v3 Balón':'3v3 Ball Mode','Pase':'Pass','Color de tu tarjeta de equipo':'Your team card color','Música':'Music',
+'Logros':'Achievements','Aparecer en el ranking online':'Appear on the online leaderboard','Modo Supervivencia':'Survival Mode','Ranking y amigos':'Leaderboard & friends',
+'Rey de la colina':'King of the Hill','Iniciar sesión / Crear cuenta':'Log in / Create account','Mejoras':'Upgrades','Diarias':'Daily','Vibración (Android)':'Vibration (Android)',
+'Efectos':'Effects','Difícil':'Hard','Tamaño de botones táctiles':'Touch button size','Fácil':'Easy','Oleadas':'Waves',
+'Idioma':'Language','Language':'Language',
+// ---- JS: UI / mensajes ----
+'Rondas ganadas':'Rounds won','Rivales eliminados':'Rivals eliminated','Rivales derrotados':'Rivals defeated','Tiempo de partida':'Match time','Tu Fusión':'Your Fusion',
+'Fragmentos ganados':'Shards earned','Horas de entrenamiento ganadas':'Training hours earned','Pase de temporada':'Season Pass',
+'¡has subido de nivel! Cobra el premio en Entrenamiento → Pase':'you leveled up! Claim your reward in Training → Pass',
+'Vel. Movimiento':'Move Speed','Vel. Recarga':'Reload Speed','Daño':'Damage','Alcance':'Range','Precisión':'Precision','Arma':'Weapon','Superataque':'Super attack',
+'PRÓRROGA · gol de oro':'OVERTIME · golden goal','Misiones de hoy':"Today's missions",'Se renuevan cada día a medianoche':'Refresh every day at midnight',
+'Recompensa':'Reward','Bonus: las 3 misiones':'Bonus: all 3 missions','Racha de entrada':'Login streak','Día':'Day','Hoy':'Today',
+'Entra cada día: el 7.º día del ciclo es el premio gordo':'Log in every day: day 7 of the cycle is the jackpot',
+'Añadir amigo':'Add friend','CÓDIGO':'CODE','Tu código de amigo':'Your friend code','Pásaselo a tus amigos para que te añadan':'Share it with your friends so they can add you',
+'Aún no tienes amigos añadidos.':"You haven't added any friends yet.",
+'No se pudo cargar el ranking. Comprueba tu conexión e inténtalo de nuevo.':"Couldn't load the leaderboard. Check your connection and try again.",
+'Todavía no hay nadie en el ranking. ¡Sé el primero!':'Nobody is on the leaderboard yet. Be the first!',
+'Algo ha fallado. Inténtalo de nuevo.':'Something went wrong. Please try again.','Audio no disponible:':'Audio unavailable:',
+'Aún no has jugado ninguna partida':"You haven't played any match yet",'Bienvenido de vuelta,':'Welcome back,',
+'Cada fusión es única: tres guardianes en un solo héroe':'Every Fusion is unique: three guardians in a single hero',
+'Cada golpe carga tu':'Every hit charges your','(hacen falta 5). En cuanto se llene la barra amarilla, actívalo con':'(you need 5). As soon as the yellow bar fills up, activate it with',
+'botón cuadrado':'square button','Espacio':'Space',
+'Carga tu superataque golpeando a los rivales':'Charge your super by hitting rivals',
+'Colección:':'Collection:','Completa las misiones diarias para ganar horas de entrenamiento':'Complete the daily missions to earn training hours',
+'Correo o contraseña incorrectos.':'Wrong email or password.','Demasiados intentos. Espera un poco.':'Too many attempts. Wait a moment.',
+'El código tiene 6 caracteres':'The code has 6 characters','El muñeco se recupera':'The dummy recovers',
+'El personaje':'The character','apunta solo':'aims on its own','al muñeco de entrenamiento. Dispara con':'at the training dummy. Shoot with','clic':'click','botón azul':'blue button',
+'o manteniendo el ratón pulsado. Si cae, reaparece.':'or by holding the mouse down. If it falls, it respawns.',
+'En la tienda puedes probarte los objetos antes de comprar':'In the shop you can try items on before buying',
+'Escribe primero tu correo arriba.':'Type your email above first.','Escribe tu contraseña para confirmar.':'Type your password to confirm.','Escribe un correo válido.':'Enter a valid email.',
+'Ese correo no es válido.':'That email is not valid.','Ese es tu propio código 🙂':'That is your own code 🙂',
+'Fusión':'Fusion','Guardián':'Guardian','Tú':'You','Fusión legendaria':'Legendary Fusion','Fusión mítica':'Mythic Fusion','Fusión épica':'Epic Fusion',
+'Gana sin caer ni una vez':'Win without falling even once','Guardando tu progreso…':'Saving your progress…',
+'Ha aparecido un':'A glowing','orbe':'orb','brillante en el mapa. Ve hasta él para recogerlo — dan curación, escudo, velocidad o munición.':'has appeared on the map. Go get it — they give healing, shield, speed or ammo.',
+'Has caído':'You fell','Has caído en la oleada':'You fell on wave','Has caído...':'You fell...','Has caído... reapareciendo':'You fell... respawning',
+'Has caído… vuelves en 3 s':'You fell… back in 3 s','Has dominado la colina':'You dominated the hill','Has sido el último en pie':'You were the last one standing',
+'La contraseña es demasiado débil (mínimo 8 caracteres).':'The password is too weak (minimum 8 characters).','La contraseña necesita al menos 8 caracteres.':'The password needs at least 8 characters.',
+'La recuperación por correo necesita el modo en línea (aún no activado).':'Email recovery needs online mode (not enabled yet).',
+'Las contraseñas no coinciden.':"Passwords don't match.",'Los entrenamientos mejoran tu personaje para siempre':'Training upgrades your character forever',
+'Los rivales han dominado la colina':'The rivals have dominated the hill','Máximo 30 amigos':'Maximum 30 friends',
+'Mejoran el resultado de cualquier Fusión':'They improve the result of any Fusion',
+'Muévete con':'Move with','(o el joystick en pantalla táctil) para dar una vuelta por el mapa.':'(or the on-screen joystick) to take a walk around the map.',
+'No existe ese código (¿participa en el ranking?)':"That code doesn't exist (is the player on the leaderboard?)",
+'No se pudo guardar en localStorage (normal en la vista previa del chat):':"Couldn't save to localStorage (normal in the chat preview):",
+'No se pudo guardar tu progreso, así que no cerramos la sesión para no perderlo. Revisa la conexión e inténtalo otra vez.':"Your progress couldn't be saved, so we didn't log you out to avoid losing it. Check your connection and try again.",
+'Objeto exclusivo del Pase de temporada':'Season Pass exclusive item','superada':'cleared','de vida':'health',
+'Para aparecer en el ranking y añadir amigos necesitas una':'To appear on the leaderboard and add friends you need an','cuenta':'account','(así tu progreso también se guarda en la nube).':'(so your progress is also saved in the cloud).',
+'Paso':'Step','Por seguridad, cierra sesión, vuelve a entrar e inténtalo de nuevo.':'For security, log out, log back in and try again.',
+'Practica sin peligro: el muñeco no ataca':"Practice safely: the dummy doesn't attack",'Preparando el entrenamiento…':'Preparing training…','Preparando la arena…':'Preparing the arena…',
+'RIVALES MÁS PELIGROSOS':'MOST DANGEROUS RIVALS','Repartiendo estadísticas…':'Handing out stats…','Ronda':'Round','Rivales':'Rivals',
+'Si participas, se publicarán en el ranking':'If you take part, the leaderboard will show','el nombre de tu personaje, tus victorias, partidas, racha y eliminaciones':'your character name, wins, matches, streak and eliminations',
+'No se publica tu correo. Puedes salir cuando quieras en Ajustes.':'Your email is never published. You can leave any time in Settings.',
+'Sin conexión':'Offline','Sin conexión. Inténtalo de nuevo.':'Offline. Please try again.',
+'Suben el suelo de tu Fusión: si te toca una mala, nunca baja de aquí':'They raise your Fusion floor: if you roll a bad one, it never goes below this',
+'Te has quedado sin vidas':"You're out of lives",'caídas':'falls','Te hemos enviado un correo para cambiar la contraseña.':"We've sent you an email to change your password.",
+'Toca para probártelo':'Tap to try it on','Tu Fusión no ha sobrevivido esta vez':"Your Fusion didn't survive this time",'Tu alcance nunca baja de':'Your range never drops below',
+'Tu daño nunca baja de':'Your damage never drops below','Tu precisión nunca baja del':'Your precision never drops below','Tu recarga nunca baja de':'Your reload never drops below',
+'Tu velocidad nunca baja de':'Your speed never drops below','Tu vida nunca baja de':'Your health never drops below',
+'Usa el superataque 5 veces':'Use the super attack 5 times','Ya es tu amigo':'Already your friend',
+'Ya existe una cuenta con ese correo en este dispositivo.':'An account with that email already exists on this device.','Ya existe una cuenta con ese correo. Prueba a iniciar sesión.':'An account with that email already exists. Try logging in.',
+'Ya sabes lo básico.':'You know the basics.','Remata al muñeco de entrenamiento':'Finish off the training dummy','para terminar el tutorial.':'to complete the tutorial.',
+'más cerca':'closest','va a por un orbe':'going for an orb','busca vida':'looking for health','desde cualquier sitio':'from anywhere',
+'Termina en':'Ends in','días':'days','Ganas XP jugando (más si ganas, eliminas rivales o subes la dificultad)':'You earn XP by playing (more if you win, eliminate rivals or raise the difficulty)',
+'LISTO':'READY','Copiado':'Copied','DOBLE KO':'DOUBLE KO','De vuelta':'Back in','GOL de tu equipo':'GOAL for your team','Gol del rival':'Rival goal',
+'Has superado todas las oleadas':"You've cleared all the waves",'JEFE DERROTADO':'BOSS DEFEATED','KO':'KO','MÚLTIPLE':'MULTI-KO','PRÓRROGA! El próximo gol decide':'OVERTIME! Next goal decides',
+'Rival derrotado':'Rival defeated','TRIPLE KO':'TRIPLE KO','Todas las oleadas superadas':'All waves cleared','Un rival ha caído':'A rival has fallen','Victoria':'Victory','YA':'NOW',
+'JEFE':'BOSS','OLEADA':'WAVE','Oleada':'Wave','La tormenta se cierra':'The storm is closing in','La tormenta llega en':'The storm arrives in','La tormenta se cierra…':'The storm is closing in…','Tormenta al máximo':'Storm at maximum',
+'ya lo tienes: te damos':'you already have it: we give you','Solo en el Pase':'Pass only','victorias':'wins','partidas':'matches','racha máxima':'best streak','racha':'streak','eliminaciones':'eliminations','horas':'hours','pase Nv':'pass Lv',
+'Tú · Fusión':'You · Fusion','Quitar':'Remove','Añadir':'Add','Cargando…':'Loading…','Buscando…':'Searching…','Combinando arquetipos…':'Combining archetypes…','Eliminando…':'Deleting…','Guardando…':'Saving…','Recargando…':'Reloading…',
+'rivales más en el mapa':'more rivals on the map','Daño ⚔':'Damage ⚔','No se pudo guardar. Reintentaremos.':"Couldn't save. We'll retry.",'Progreso guardado':'Progress saved',
+'Cobrado ✓':'Claimed ✓','Siguiente':'Next','curan':'heal','escudo':'shield','velocidad':'speed','munición':'ammo','+vida':'+health','Munición!':'Ammo!','Grom, el Leñador':'Grom the Lumberjack','Escudo de Roca':'Rock Shield','Sombra ':'Shadow ','Cobrar todo':'Claim all','Cobrar':'Claim','Adquirido':'Owned','Equipar':'Equip','Copiar':'Copy','Participar':'Take part','Puesta':'Equipped','Puesto':'Equipped',
+// ---- rarezas / dificultad / misc
+'Común':'Common','Rara':'Rare','Épica':'Epic','Legendaria':'Legendary','Mítica':'Mythic','Mítico':'Mythic','Alta':'High','Baja':'Low','Media':'Medium','Medio':'Medium','Corto':'Short','Largo':'Long',
+'Mínimos':'Minimums','Vida mínima':'Minimum health','Daño mínimo':'Minimum damage','Velocidad mínima':'Minimum speed','Recarga mínima':'Minimum reload','Alcance mínimo':'Minimum range','Precisión mínima':'Minimum precision',
+'Sin suelo de alcance':'No range floor','Sin suelo de daño':'No damage floor','Sin suelo de precisión':'No precision floor','Sin suelo de recarga':'No reload floor','Sin suelo de velocidad':'No speed floor','Sin suelo de vida':'No health floor',
+'Velocidad':'Speed','Veloc.':'Speed','Fuerza':'Strength','Intelig.':'Intellect','Inteligencia':'Intellect','Constitución':'Constitution','Cadencia':'Fire rate','Eliminaciones':'Eliminations','Victorias':'Wins','Mejor racha':'Best streak','Supervivencia':'Survival','Amigos':'Friends','Global':'Global',
+'Guantes':'Gloves','Hacha':'Axe','Bastón':'Staff','Ventajas especiales':'Special perks','Potenciadores':'Boosters','Recompensas normales':'Normal rewards','Extras':'Extras',
+'Frenesí':'Frenzy','Regeneración':'Regeneration','Sin regeneración':'No regeneration','Munición':'Ammo','Curación':'Healing','Escudo':'Shield','Botín':'Loot','Bastión':'Bastion','Bastión Personal':'Personal Bastion',
+'Horas de Entrenamiento':'Training Hours','Entrenamiento ':'Training ','Derrota':'Defeat','Ganador':'Winner','Campeón':'Champion','Leyenda':'Legend','Invencible':'Invincible','Imparable':'Unstoppable',
+'Ráfaga':'Burst','Adrenalina':'Adrenaline','Supercarga':'Supercharge','Umbral':'Threshold','Renacer':'Rebirth','Segundo Aliento':'Second Wind','Pulso Vital':'Vital Pulse','Furia de Batalla':'Battle Fury',
+'Manos rápidas':'Quick hands','Piernas de acero':'Steel legs','Voluntad de Hierro':'Iron Will','Fuerza bruta':'Brute force','Maestro del entrenamiento':'Training master','Muro Viviente':'Living Wall',
+'Carga Imparable':'Unstoppable Charge','Embestida Feroz':'Fierce Charge','Explosión Sísmica':'Seismic Blast','Giro del Leñador':"Lumberjack's Spin",'Onda de Choque':'Shockwave','Torbellino de Acero':'Steel Whirlwind','Remolino de Cuchillas':'Blade Whirl','Estampida':'Stampede','Bramido':'Bellow','Rugido':'Roar',
+// ---- armas
+'Abanico de Cuchillas':'Blade Fan','Arma de práctica':'Practice weapon','Aspecto del arma (cosmético)':'Weapon skin (cosmetic)','Arco Corto':'Short Bow','Arco largo':'Longbow','Ballesta Pesada':'Heavy Crossbow','Bastón Rúnico':'Runic Staff','Bumerán de Piedra':'Stone Boomerang',
+'Cadena con Gancho':'Hooked Chain','Dardo Venenoso':'Poison Dart','Disco Cortante':'Cutting Disc','Doble Daga':'Twin Daggers','Escopeta de Chatarra':'Scrap Shotgun','Espada élfica':'Elven Sword','Espiral de Hachas':'Axe Spiral','Garras Rápidas':'Quick Claws','Granada de Mano':'Hand Grenade',
+'Katana':'Katana','Lanza con estandarte':'Banner Spear','Látigo de Fuego':'Fire Whip','Martillo de guerra':'War Hammer','Nudillos Eléctricos':'Electric Knuckles','Puños de Hierro':'Iron Fists','Rayo Congelante':'Freezing Ray','Shurikens Gemelos':'Twin Shurikens','Tridente Marino':'Sea Trident','Vara Arcana':'Arcane Rod','Daga ceremonial':'Ceremonial Dagger','Yunque':'Anvil','Saeta':'Bolt',
+// ---- logros
+'Aguanta 2 minutos en una partida':'Survive 2 minutes in a match','Compra 10 objetos de la tienda':'Buy 10 shop items','Compra 40 objetos de la tienda':'Buy 40 shop items','Compra 100 objetos de la tienda':'Buy 100 shop items',
+'Consigue una Fusión Legendaria':'Get a Legendary Fusion','Consigue una Fusión Mítica':'Get a Mythic Fusion','Consigue una Fusión Épica':'Get an Epic Fusion',
+'Derrota a 10 rivales':'Defeat 10 rivals','Derrota a 25 rivales':'Defeat 25 rivals','Derrota a 150 rivales':'Defeat 150 rivals','Derrota a 600 rivales':'Defeat 600 rivals','Derrota a 2000 rivales':'Defeat 2000 rivals',
+'Gana una partida de Supervivencia':'Win a Survival match','Gana una partida en la Arena':'Win an Arena match','Juega 1 partida de 3v3 Balón':'Play 1 match of 3v3 Ball',
+'Racha de 3 victorias':'3-win streak','Racha de 6 victorias':'6-win streak','Racha de 12 victorias':'12-win streak','Sube 10 niveles de entrenamiento':'Reach 10 training levels','Sube 50 niveles de entrenamiento':'Reach 50 training levels','Sube 120 niveles de entrenamiento':'Reach 120 training levels',
+'Gana 1 partida':'Win 1 match','Gana 2 partidas':'Win 2 matches','Gana 10 partidas':'Win 10 matches','Gana 50 partidas':'Win 50 matches','Gana 150 partidas':'Win 150 matches',
+'Juega 1 partida':'Play 1 match','Juega 3 partidas':'Play 3 matches','Juega 10 partidas':'Play 10 matches','Juega 50 partidas':'Play 50 matches','Juega 200 partidas':'Play 200 matches',
+'Primera partida':'First match','Primera victoria':'First victory','Racha ardiente':'Burning streak','Tienda vaciada':'Shop emptied','Rey del balón':'Ball King','Azote de la arena':'Scourge of the Arena',
+'Aficionado':'Amateur','Atleta':'Athlete','Bruto':'Brute','Cazador':'Hunter','Coleccionista':'Collector','Gran coleccionista':'Great collector','Domadragones':'Dragon tamer','El Elegido':'The Chosen One','En forma':'In shape','En racha':'On a roll','Habitual':'Regular','Jugador':'Player','Maestro':'Master','Novato':'Rookie','Veterano':'Veteran','Verdugo':'Executioner','Coloso':'Colossus','Aliado':'Ally','Rival':'Rival',
+// ---- tienda: categorías
+'Accesorios de cabeza':'Head accessories','Auras':'Auras','Capas':'Capes','Colores de pelo':'Hair colors','Colores de ropa':'Outfit colors','Tonos de piel':'Skin tones','Efectos de disparo':'Shot effects','Estelas al caminar':'Walking trails','Insignias de nombre':'Name badges','Mascotas':'Pets','Peinados':'Hairstyles','Fondos de tu tarjeta de equipo':'Your team card backgrounds',
+// ---- tienda: objetos
+'Aura arcoíris':'Rainbow aura','Aura de amor':'Love aura','Aura de fuego':'Fire aura','Aura de hielo':'Ice aura','Aura de luz':'Light aura','Aura eléctrica':'Electric aura','Aura sombría':'Shadow aura','Aura natural':'Natural aura','Azul eléctrico':'Electric blue','Azul océano':'Ocean blue','Azul glacial':'Glacial blue','Azul medianoche':'Midnight blue',
+'Búho sabio':'Wise owl','Dragón bebé':'Baby dragon','Capa arcoíris':'Rainbow cape','Capa de la noche':'Night cape','Capa del bosque':'Forest cape','Capa púrpura':'Purple cape','Capa dorada':'Golden cape','Capa galaxia':'Galaxy cape','Capa real azul':'Royal blue cape','Capa roja':'Red cape',
+'Carmesí':'Crimson','Casco de acero':'Steel helmet','Cinta de combate':'Combat headband','Cráter':'Crater','Cuernos de demonio':'Demon horns','Disparos arcoíris':'Rainbow shots','Disparos tóxicos':'Toxic shots','Disparos cian':'Cyan shots','Disparos dorados':'Golden shots','Disparos rojos':'Red shots','Disparos rosa':'Pink shots',
+'Estela arcoíris':'Rainbow trail','Estela de fuego':'Fire trail','Rastro de rayo':'Lightning trail','Hojas al viento':'Leaves in the wind','Lluvia de estrellas':'Starfall','Nube de polvo':'Dust cloud','Huellas':'Footprints','Burbujas':'Bubbles','Chispas':'Sparks','Corazones':'Hearts','Destello':'Flash',
+'Fondo Arcoíris':'Rainbow Background','Fondo Carbón':'Charcoal Background','Fondo Neón':'Neon Background','Fondo Amatista':'Amethyst Background','Fondo Atardecer':'Sunset Background','Fondo Bosque':'Forest Background','Fondo Cielo':'Sky Background','Fondo Galaxia':'Galaxy Background','Fondo Hielo':'Ice Background','Fondo Lava':'Lava Background','Fondo Noche':'Night Background','Fondo Oro':'Gold Background',
+'Gafas de sol':'Sunglasses','Gorro de lana':'Wool beanie','Sombrero de mago':'Wizard hat','Moño alto':'High bun','Orejas de gato':'Cat ears','Antifaz':'Mask','Auriculares gamer':'Gamer headset','Corona real':'Royal crown','Halo angelical':'Angelic halo','Parche pirata':'Pirate eyepatch',
+'Coleta':'Ponytail','Coletas dobles':'Twin tails','Corte bob':'Bob cut','Cresta':'Mohawk','Rapado':'Buzz cut','Rizos':'Curls','Trenzas guerreras':'Warrior braids',
+'Naranja volcán':'Volcano orange','Naranja fuego':'Fire orange','Violeta místico':'Mystic violet','Violeta nocturno':'Night violet','Rosa neón':'Neon pink','Rosa pastel':'Pastel pink','Ébano profundo':'Deep ebony','Volcán':'Volcano','Desierto':'Desert','Nieve':'Snow','Pradera':'Meadow','Duna':'Dune','Roca':'Rock',
+'Blanco nieve':'Snow white','Canela':'Cinnamon','Coral':'Coral','Cobre':'Copper','Cuero':'Leather','Dorado real':'Royal gold','Esmeralda':'Emerald','Fucsia':'Fuchsia','Gris acero':'Steel gray','Gris piedra':'Stone gray','Lavanda':'Lavender','Marfil':'Ivory','Marfil rosado':'Rosy ivory','Menta':'Mint','Morado intenso':'Deep purple','Negro azulado':'Bluish black','Negro sombra':'Shadow black','Oro':'Gold','Piel dorada':'Golden skin','Plata':'Silver','Porcelana':'Porcelain','Rojo cereza':'Cherry red','Rojo demonio':'Demon red','Rojo sangre':'Blood red','Rubio platino':'Platinum blonde','Titanio':'Titanium','Turquesa':'Turquoise','Verde esmeralda':'Emerald green','Verde lima':'Lime green','Verde orco':'Orc green',
+'Chirri':'Chirpy','Fantasmita':'Little ghost','Gatito':'Kitten','Patoso':'Duckling','Perrito':'Puppy','Pollito':'Chick','Slime':'Slime','Tropiezo':'Stumble','Ábaco':'Abacus','Migas':'Crumbs','Bobtail':'Bobtail','Dron aliado':'Ally drone','Tridente':'Trident',
+// ---- UI botones / HUD
+'Equipo rival':'Rival team','EQUIPO RIVAL':'RIVAL TEAM','TU EQUIPO':'YOUR TEAM','TUS TRES GUARDIANES':'YOUR THREE GUARDIANS','PRIMERA OLEADA':'FIRST WAVE','REY DE LA COLINA':'KING OF THE HILL','RIVALES DE LA COLINA':'HILL RIVALS','OLEADAS':'WAVES',
+'Vidas':'Lives','Rivales vivos':'Rivals alive','Rivales derrotados:':'Rivals defeated:','Arena':'Arena','Balón':'Ball','Supervivencia ':'Survival ','Vida completa':'Full health','claim':'claim',
+};
+const I18N_RULES = [
+ [/\b(\d+) victorias\b/g,'$1 wins'],[/\b(\d+) partidas\b/g,'$1 matches'],
+ [/Super: (\d+)\/(\d+) golpes/g,'Super: $1/$2 hits'],
+ [/\+(\d+(?:\.\d+)?)% velocidad de recarga/g,'+$1% reload speed'],[/\+(\d+(?:\.\d+)?)% velocidad de movimiento/g,'+$1% move speed'],
+ [/\+(\d+(?:\.\d+)?)% de daño/g,'+$1% damage'],[/\+(\d+(?:\.\d+)?)% de vida/g,'+$1% health'],[/\+(\d+(?:\.\d+)?)% fragmentos por partida/g,'+$1% shards per match'],
+ [/Recuperas (\d+(?:\.\d+)?)% de vida por segundo/g,'You recover $1% health per second'],
+ [/Recompensas ×(\d+(?:\.\d+)?) \(fragmentos y horas\)/g,'Rewards ×$1 (shards and hours)'],
+ [/Oleada (\d+) superada · \+35% de vida/g,'Wave $1 cleared · +35% health'],
+ [/Has caído en la oleada (\d+)/g,'You fell on wave $1'],
+ [/Has caído\.\.\. reapareciendo \((\d+) vidas?\)/g,(m,n)=>'You fell... respawning ('+n+(n==1?' life':' lives')+')'],
+ [/Te has quedado sin vidas \((\d+) caídas\)/g,'You are out of lives ($1 falls)'],
+ [/Termina en (\d+) días/g,'Ends in $1 days'],
+ [/Superataque tras (\d+) golpes \(base (\d+)\)/g,'Super after $1 hits (base $2)'],[/(\d+)\s*\/\s*(\d+) XP para el nivel (\d+)/g,'$1 / $2 XP to level $3'],[/(\d+)\/(\d+) golpes/g,'$1/$2 hits'],
+ [/Nivel (\d+)\/(\d+)/g,'Level $1/$2'],[/\bNivel (\d+)\b/g,'Level $1'],[/\bNv (\d+)/g,'Lv $1'],
+ [/Día (\d+)/g,'Day $1'],[/Ronda (\d+)/g,'Round $1'],[/Paso (\d+) de (\d+)/g,'Step $1 of $2'],
+ [/La tormenta llega en (\d+)s/g,'The storm arrives in $1s'],
+ [/…y (\d+) rivales más en el mapa/g,'…and $1 more rivals on the map'],
+ [/Colección: (\d+) \/ (\d+)/g,'Collection: $1 / $2'],
+ [/ \(ya lo tienes: te damos /g,' (you already own it: we give you '],
+ [/Bienvenido de vuelta, /g,'Welcome back, '],
+ [/Cobrar todo \((\d+)\)/g,'Claim all ($1)'],
+ [/OLEADA (\d+): ¡JEFE!/g,'WAVE $1: BOSS!'],[/Oleada <b>(\d+)<\/b>/g,'Wave $1'],
+ [/¡Victoria!/g,'Victory!'],[/¡KO!/g,'KO!'],[/¡YA!/g,'NOW!'],[/¡([^!¡]{2,60})!/g,(m,a)=>'¡'+a+'!'],
+];
+
+// ---------- IDIOMA (ES / EN) ----------
+// Español es el idioma base; el inglés se aplica traduciendo el texto en pantalla (DOM y canvas).
+const I18N = (() => {
+  const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const dict = Object.assign({}, I18N_EN);
+  Object.keys(I18N_EN).forEach(k => { if (k.length >= 3) { const u = k.toUpperCase(); if (!(u in dict)) dict[u] = I18N_EN[k].toUpperCase(); } });
+  const keys = Object.keys(dict).sort((a, b) => b.length - a.length);
+  const re = new RegExp('(?<![\\p{L}\\p{N}])(?:' + keys.map(esc).join('|') + ')(?![\\p{L}\\p{N}])', 'gu');
+  const cache = new Map();
+  let lang = 'es';
+  function tr(s) {
+    if (lang !== 'en' || typeof s !== 'string' || s.length < 2) return s;
+    let r = cache.get(s); if (r !== undefined) return r;
+    r = s;
+    if (/[A-Za-zÁÉÍÓÚáéíóúñ]/.test(s)) {
+      const ex = s.trim();
+      if (dict[ex] !== undefined) r = s.replace(ex, dict[ex]);
+      else {
+        r = r.replace(/^\s*o el\s*$/, ' or the ');
+        for (const [rx, rep] of I18N_RULES) r = r.replace(rx, rep);
+        r = r.replace(re, m => dict[m] || m);
+        r = r.replace(/[¡¿]/g, '');
+      }
+    }
+    if (cache.size > 4000) cache.clear();
+    cache.set(s, r); return r;
+  }
+  const ATTRS = ['placeholder', 'title', 'aria-label', 'alt'];
+  function doText(n) {
+    const d = n.data;
+    if (n.__en !== undefined && d === n.__en) return;
+    const t = tr(d);
+    if (t !== d) { n.__es = d; n.__en = t; n.data = t; } else { n.__es = undefined; n.__en = undefined; }
+  }
+  function doEl(el) {
+    for (const a of ATTRS) {
+      if (!el.hasAttribute || !el.hasAttribute(a)) continue;
+      const k = '__es_' + a, v = el.getAttribute(a);
+      if (el[k + 'T'] === v) continue;
+      const t = tr(v); if (t !== v) { el[k] = v; el[k + 'T'] = t; el.setAttribute(a, t); }
+    }
+  }
+  function walk(root) {
+    if (root.nodeType === 3) { doText(root); return; }
+    if (root.nodeType !== 1) return;
+    if (/^(SCRIPT|STYLE|CANVAS)$/.test(root.tagName)) return;
+    doEl(root);
+    for (let c = root.firstChild; c; c = c.nextSibling) walk(c);
+  }
+  function restore(root) {
+    if (root.nodeType === 3) { if (root.__es !== undefined) { root.data = root.__es; root.__es = root.__en = undefined; } return; }
+    if (root.nodeType !== 1) return;
+    for (const a of ATTRS) { const k = '__es_' + a; if (root[k] !== undefined) { root.setAttribute(a, root[k]); root[k] = root[k + 'T'] = undefined; } }
+    for (let c = root.firstChild; c; c = c.nextSibling) restore(c);
+  }
+  let mo = null;
+  function startObs() {
+    if (mo) return;
+    mo = new MutationObserver(ms => {
+      for (const m of ms) {
+        if (m.type === 'characterData') doText(m.target);
+        else if (m.type === 'attributes') doEl(m.target);
+        else m.addedNodes.forEach(walk);
+      }
+    });
+    mo.observe(document.body, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ATTRS });
+  }
+  // texto dibujado en canvas
+  const P = CanvasRenderingContext2D.prototype;
+  ['fillText', 'strokeText'].forEach(fn => { const o = P[fn]; P[fn] = function (t, ...a) { return o.call(this, lang === 'en' ? tr(String(t)) : t, ...a); }; });
+  const om = P.measureText; P.measureText = function (t) { return om.call(this, lang === 'en' ? tr(String(t)) : t); };
+  function resolve(pref) { return pref === 'en' || pref === 'es' ? pref : ((navigator.language || 'es').toLowerCase().startsWith('en') ? 'en' : 'es'); }
+  function set(pref) {
+    const nl = resolve(pref);
+    if (nl === lang && mo !== null === (nl === 'en')) return;
+    if (nl === 'en') { lang = 'en'; document.documentElement.lang = 'en'; cache.clear(); walk(document.body); startObs(); document.title = tr(document.title); }
+    else { lang = 'es'; if (mo) { mo.disconnect(); mo = null; } restore(document.body); document.documentElement.lang = 'es'; document.title = '🪓 HEROIC GUARDIANS'; }
+  }
+  return { tr, set, get lang() { return lang; } };
+})();
+const trT = s => I18N.tr(s);   // para textos de JS que no pasan por el DOM (p. ej. alert/confirm)
+
 function applySettings() {
-  try { if (musicGain) musicGain.gain.value = 0.2 * settings.music / 100; if (sfxGain) sfxGain.gain.value = 0.8 * settings.sfx / 100; } catch (e) {}
+  try { if (musicGain) musicGain.gain.value = 0.55 * settings.music / 100; if (sfxGain) sfxGain.gain.value = 0.8 * settings.sfx / 100; } catch (e) {}
   document.documentElement.style.setProperty('--ts', (0.6 + settings.touch / 100 * 0.6).toFixed(2));
+  try { I18N.set(settings.lang); } catch (e) {}
 }
 function vib(ms) { if (settings.vibrate && navigator.vibrate) { try { navigator.vibrate(ms); } catch (e) {} } }
 
@@ -2143,7 +2415,7 @@ function renderDaily(box, s) {
   card.innerHTML = `<div class="tr-ico">🔥</div><div class="tr-main"><div class="tr-name">Racha de entrada <em>Día ${L.streak}</em></div><div class="tr-desc">Hoy: ⏱ ${rh} · 🔶 ${rf}</div><div class="tr-next">Entra cada día: el 7.º día del ciclo es el premio gordo (⏱ 8 · 🔶 200)</div><div class="tr-pips">${pips}</div></div>`;
   const b = document.createElement('button'); b.className = 'tr-btn';
   if (L.claimed) { b.textContent = 'Cobrado ✓'; b.disabled = true; b.classList.add('max'); }
-  else { b.textContent = 'Cobrar'; b.classList.add('claim'); b.addEventListener('click', () => { const t = trainState(); ensureDaily(t); if (t.login.claimed) return; t.login.claimed = true; t.hours += rh; t.fragments = (t.fragments || 0) + rf; saveStats(t); playSfx('victory'); renderTrain(); renderStatsLine(); }); }
+  else { b.textContent = 'Cobrar'; b.classList.add('claim'); b.addEventListener('click', () => { const t = trainState(); ensureDaily(t); if (t.login.claimed) return; t.login.claimed = true; t.hours += rh; t.fragments = (t.fragments || 0) + rf; saveStats(t); playSfx('levelup'); renderTrain(); renderStatsLine(); }); }
   card.appendChild(b); box.appendChild(card);
   const h = document.createElement('div'); h.className = 'tr-group'; h.innerHTML = '<b>Misiones de hoy</b><span>Se renuevan cada día a medianoche</span>'; box.appendChild(h);
   s.daily.missions.forEach((m, idx) => {
@@ -2152,7 +2424,7 @@ function renderDaily(box, s) {
     c.innerHTML = `<div class="tr-ico">🎯</div><div class="tr-main"><div class="tr-name">${d.text} <em>${m.p}/${d.goal}</em></div><div class="tr-bar"><i style="width:${m.p / d.goal * 100}%"></i></div><div class="tr-next">Recompensa: ⏱ ${d.hours} · 🔶 ${d.frag}</div></div>`;
     const bb = document.createElement('button'); bb.className = 'tr-btn';
     if (m.c) { bb.textContent = 'Cobrado ✓'; bb.disabled = true; bb.classList.add('max'); }
-    else if (ready) { bb.textContent = 'Cobrar'; bb.classList.add('claim'); bb.addEventListener('click', () => { const t = trainState(); ensureDaily(t); const mm = t.daily.missions[idx]; if (mm.c) return; mm.c = true; t.hours += d.hours; t.fragments = (t.fragments || 0) + d.frag; saveStats(t); playSfx('victory'); renderTrain(); renderStatsLine(); }); }
+    else if (ready) { bb.textContent = 'Cobrar'; bb.classList.add('claim'); bb.addEventListener('click', () => { const t = trainState(); ensureDaily(t); const mm = t.daily.missions[idx]; if (mm.c) return; mm.c = true; t.hours += d.hours; t.fragments = (t.fragments || 0) + d.frag; saveStats(t); playSfx('levelup'); renderTrain(); renderStatsLine(); }); }
     else { bb.textContent = '🔒'; bb.disabled = true; bb.classList.add('off'); }
     c.appendChild(bb); box.appendChild(c);
   });
@@ -2161,7 +2433,7 @@ function renderDaily(box, s) {
   bc.innerHTML = `<div class="tr-ico">🎁</div><div class="tr-main"><div class="tr-name">Bonus: las 3 misiones</div><div class="tr-next">Recompensa: ⏱ 10 · 🔶 100</div></div>`;
   const bb2 = document.createElement('button'); bb2.className = 'tr-btn';
   if (s.daily.bonus) { bb2.textContent = 'Cobrado ✓'; bb2.disabled = true; bb2.classList.add('max'); }
-  else if (all) { bb2.textContent = 'Cobrar'; bb2.classList.add('claim'); bb2.addEventListener('click', () => { const t = trainState(); ensureDaily(t); if (t.daily.bonus) return; t.daily.bonus = true; t.hours += 10; t.fragments = (t.fragments || 0) + 100; saveStats(t); playSfx('victory'); renderTrain(); renderStatsLine(); }); }
+  else if (all) { bb2.textContent = 'Cobrar'; bb2.classList.add('claim'); bb2.addEventListener('click', () => { const t = trainState(); ensureDaily(t); if (t.daily.bonus) return; t.daily.bonus = true; t.hours += 10; t.fragments = (t.fragments || 0) + 100; saveStats(t); playSfx('levelup'); renderTrain(); renderStatsLine(); }); }
   else { bb2.textContent = '🔒'; bb2.disabled = true; bb2.classList.add('off'); }
   bc.appendChild(bb2); box.appendChild(bc);
 }
@@ -2205,7 +2477,7 @@ function renderPass(box, s) {
   const head = document.createElement('div'); head.className = 'tr-card';
   head.innerHTML = `<div class="tr-ico">🎖</div><div class="tr-main"><div class="tr-name">Pase de temporada <em>Nivel ${lv}/${PASS_MAX}</em></div><div class="tr-bar"><i style="width:${lv >= PASS_MAX ? 100 : (P.xp - base) / (nxt - base) * 100}%"></i></div><div class="tr-next">${lv >= PASS_MAX ? '¡Pase completado!' : `${P.xp - base} / ${nxt - base} XP para el nivel ${lv + 1}`} · Termina en ${passDaysLeft()} días · Ganas XP jugando (más si ganas, eliminas rivales o subes la dificultad)</div></div>`;
   const n = passClaimables(s), all = document.createElement('button'); all.className = 'tr-btn' + (n ? ' claim' : ' off'); all.textContent = n ? `Cobrar todo (${n})` : '🔒'; all.disabled = !n;
-  all.addEventListener('click', () => { const t = trainState(); for (let l = 1; l <= PASS_MAX; l++) claimPass(l, t); saveStats(t); playSfx('victory'); renderTrain(); renderStatsLine(); });
+  all.addEventListener('click', () => { const t = trainState(); for (let l = 1; l <= PASS_MAX; l++) claimPass(l, t); saveStats(t); playSfx('levelup'); renderTrain(); renderStatsLine(); });
   head.appendChild(all); box.appendChild(head);
   for (let l = 1; l <= PASS_MAX; l++) {
     const reached = lv >= l, got = !!P.claimed[l], special = !!passRewards()[l].item;
@@ -2213,10 +2485,89 @@ function renderPass(box, s) {
     c.innerHTML = `<div class="tr-ico">${special ? '🎁' : l}</div><div class="tr-main"><div class="tr-name">Nivel ${l}</div><div class="tr-desc">${passRewardText(l)}</div></div>`;
     const b = document.createElement('button'); b.className = 'tr-btn';
     if (got) { b.textContent = 'Cobrado ✓'; b.disabled = true; b.classList.add('max'); }
-    else if (reached) { b.textContent = 'Cobrar'; b.classList.add('claim'); b.addEventListener('click', () => { const t = trainState(); if (claimPass(l, t)) { saveStats(t); playSfx('victory'); renderTrain(); renderStatsLine(); } }); }
+    else if (reached) { b.textContent = 'Cobrar'; b.classList.add('claim'); b.addEventListener('click', () => { const t = trainState(); if (claimPass(l, t)) { saveStats(t); playSfx('levelup'); renderTrain(); renderStatsLine(); } }); }
     else { b.textContent = '🔒'; b.disabled = true; b.classList.add('off'); }
     c.appendChild(b); box.appendChild(c);
   }
+}
+
+// =====================================================================
+// RANKING ONLINE Y AMIGOS
+// =====================================================================
+Object.assign(cloudBackend, {
+  async publishScore(uid, doc) { const { db } = await fb(); await db.collection('leaderboard').doc(uid).set(doc); },
+  async topScores(field, n) { const { db } = await fb(); const q = await db.collection('leaderboard').orderBy(field, 'desc').limit(n).get(); return q.docs.map(d => Object.assign({ uid: d.id }, d.data())); },
+  async getScore(uid) { const { db } = await fb(); const d = await db.collection('leaderboard').doc(uid).get(); return d.exists ? Object.assign({ uid }, d.data()) : null; },
+  async findByCode(code) { const { db } = await fb(); const q = await db.collection('leaderboard').where('code', '==', code).limit(1).get(); return q.empty ? null : Object.assign({ uid: q.docs[0].id }, q.docs[0].data()); },
+  async deleteScore(uid) { const { db } = await fb(); await db.collection('leaderboard').doc(uid).delete(); }
+});
+Object.assign(localBackend, {
+  async publishScore(uid, doc) { const b = readJSON('hgLocalBoard', {}); b[uid] = doc; writeJSON('hgLocalBoard', b); },
+  async topScores(field, n) { const b = readJSON('hgLocalBoard', {}); return Object.keys(b).map(u => Object.assign({ uid: u }, b[u])).sort((x, y) => (y[field] || 0) - (x[field] || 0)).slice(0, n); },
+  async getScore(uid) { const b = readJSON('hgLocalBoard', {}); return b[uid] ? Object.assign({ uid }, b[uid]) : null; },
+  async findByCode(code) { const b = readJSON('hgLocalBoard', {}); const u = Object.keys(b).find(k => b[k].code === code); return u ? Object.assign({ uid: u }, b[u]) : null; },
+  async deleteScore(uid) { const b = readJSON('hgLocalBoard', {}); delete b[uid]; writeJSON('hgLocalBoard', b); }
+});
+function friendCodeOf(uid) { return seedHash('hg' + uid).toString(36).toUpperCase().padStart(6, '0').slice(0, 6); }
+function myScoreDoc() {
+  const st = loadStats(), tr = loadSavedTraits() || {}, s = getSession();
+  return { name: String(tr.name || 'Jugador').slice(0, 16), code: friendCodeOf(s.uid), wins: st.wins || 0, matches: st.matches || 0, bestStreak: st.bestStreak || 0, kills: st.totalKills || 0, rarity: st.rarestFusion || '', pass: passLevel(ensurePass(st).xp), updated: Date.now() };
+}
+async function publishMyScore() { const s = getSession(); if (!s || !settings.rankOptIn || !accountBackend.publishScore) return; try { await accountBackend.publishScore(s.uid, myScoreDoc()); } catch (e) { console.warn('ranking', e); } }
+const RANK_FIELDS = { wins: '🏆 Victorias', bestStreak: '🔥 Mejor racha', kills: '⚔️ Eliminaciones' };
+let rankTab = 'global', rankField = 'wins', rankBusy = 0;
+function rankRow(i, r, me, extra) {
+  const c = document.createElement('div'); c.className = 'tr-card' + (me ? ' rank-me' : '');
+  const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i + 1);
+  const val = r[rankField] || 0;
+  c.innerHTML = `<div class="tr-ico">${medal}</div><div class="tr-main"><div class="tr-name">${escapeHtml(r.name || '—')} ${me ? '<em>(tú)</em>' : ''}</div><div class="tr-next">${r.wins || 0} victorias · ${r.matches || 0} partidas · racha ${r.bestStreak || 0} · ${r.kills || 0} eliminaciones${r.pass ? ' · pase Nv ' + r.pass : ''}</div></div><div class="rank-val">${val}</div>`;
+  if (extra) c.appendChild(extra); return c;
+}
+function escapeHtml(t) { return String(t).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch])); }
+async function renderRank() {
+  const box = document.getElementById('rankBody'), my = ++rankBusy; box.innerHTML = '';
+  const s = getSession();
+  const note = (html, btn) => { const d = document.createElement('div'); d.className = 'tr-card'; d.innerHTML = `<div class="tr-main"><div class="tr-next" style="font-size:13px;line-height:1.5">${html}</div></div>`; if (btn) d.appendChild(btn); box.appendChild(d); };
+  if (!s) { const b = document.createElement('button'); b.className = 'tr-btn claim'; b.textContent = 'Iniciar sesión'; b.onclick = () => openAccountModal(); note('Para aparecer en el ranking y añadir amigos necesitas una <b>cuenta</b> (así tu progreso también se guarda en la nube).', b); return; }
+  if (!settings.rankOptIn) { const b = document.createElement('button'); b.className = 'tr-btn claim'; b.textContent = 'Participar'; b.onclick = async () => { settings.rankOptIn = true; saveSettings(); await publishMyScore(); renderRank(); }; note('Si participas, se publicarán en el ranking <b>el nombre de tu personaje, tus victorias, partidas, racha y eliminaciones</b>. No se publica tu correo. Puedes salir cuando quieras en Ajustes.', b); return; }
+  await publishMyScore();
+  const tabs = document.createElement('div'); tabs.className = 'tr-tabs';
+  [['global', '🌍 Global'], ['friends', '👥 Amigos']].forEach(([k, l]) => { const b = document.createElement('button'); b.textContent = l; if (rankTab === k) b.className = 'on'; b.onclick = () => { rankTab = k; renderRank(); }; tabs.appendChild(b); });
+  box.appendChild(tabs);
+  const code = friendCodeOf(s.uid), cd = document.createElement('div'); cd.className = 'tr-card';
+  cd.innerHTML = `<div class="tr-main"><div class="tr-name">Tu código de amigo: <b style="letter-spacing:2px;color:var(--accent)">${code}</b></div><div class="tr-next">Pásaselo a tus amigos para que te añadan</div></div>`;
+  const cp = document.createElement('button'); cp.className = 'tr-btn'; cp.textContent = 'Copiar'; cp.onclick = () => { try { navigator.clipboard.writeText(code); cp.textContent = '¡Copiado!'; } catch (e) {} }; cd.appendChild(cp); box.appendChild(cd);
+  const list = document.createElement('div'); box.appendChild(list); list.innerHTML = '<div class="tr-next" style="text-align:center;padding:14px">Cargando…</div>';
+  try {
+    if (rankTab === 'global') {
+      const chips = document.createElement('div'); chips.className = 'diff-row';
+      Object.keys(RANK_FIELDS).forEach(k => { const b = document.createElement('button'); b.textContent = RANK_FIELDS[k]; if (rankField === k) b.className = 'on'; b.onclick = () => { rankField = k; renderRank(); }; chips.appendChild(b); });
+      box.insertBefore(chips, list);
+      const rows = await accountBackend.topScores(rankField, 25); if (my !== rankBusy) return; list.innerHTML = '';
+      if (!rows.length) list.innerHTML = '<div class="tr-next" style="text-align:center;padding:14px">Todavía no hay nadie en el ranking. ¡Sé el primero!</div>';
+      rows.forEach((r, i) => list.appendChild(rankRow(i, r, r.uid === s.uid)));
+    } else {
+      const add = document.createElement('div'); add.className = 'tr-card';
+      add.innerHTML = '<div class="tr-main"><div class="tr-name">Añadir amigo</div><input id="friendCodeIn" maxlength="6" placeholder="CÓDIGO" style="margin-top:6px;width:130px;padding:8px;background:#0f1015;color:var(--ink);border:1px solid var(--line);border-radius:8px;text-transform:uppercase;letter-spacing:2px"><span id="friendMsg" class="tr-next" style="margin-left:8px"></span></div>';
+      const ab = document.createElement('button'); ab.className = 'tr-btn claim'; ab.textContent = 'Añadir';
+      ab.onclick = async () => {
+        const c2 = (document.getElementById('friendCodeIn').value || '').trim().toUpperCase(), msg = document.getElementById('friendMsg');
+        if (c2.length < 6) { msg.textContent = 'El código tiene 6 caracteres'; return; }
+        if (c2 === code) { msg.textContent = 'Ese es tu propio código 🙂'; return; }
+        msg.textContent = 'Buscando…';
+        try { const f = await accountBackend.findByCode(c2); if (!f) { msg.textContent = 'No existe ese código (¿participa en el ranking?)'; return; }
+          const st = loadStats(); st.friends = st.friends || []; if (st.friends.some(x => x.uid === f.uid)) { msg.textContent = 'Ya es tu amigo'; return; } if (st.friends.length >= 30) { msg.textContent = 'Máximo 30 amigos'; return; }
+          st.friends.push({ uid: f.uid, name: f.name }); saveStats(st); renderRank(); } catch (e) { msg.textContent = 'Sin conexión'; }
+      };
+      add.appendChild(ab); box.insertBefore(add, list);
+      const fr = (loadStats().friends || []);
+      const rows = (await Promise.all(fr.map(f => accountBackend.getScore(f.uid).catch(() => null)))).filter(Boolean).concat(await accountBackend.getScore(s.uid).then(x => x ? [x] : []));
+      if (my !== rankBusy) return; rows.sort((a, b) => (b.wins || 0) - (a.wins || 0)); list.innerHTML = '';
+      if (rows.length <= 1) list.innerHTML = '<div class="tr-next" style="text-align:center;padding:14px">Aún no tienes amigos añadidos.</div>';
+      rankField = 'wins';
+      rows.forEach((r, i) => { let x = null; if (r.uid !== s.uid) { x = document.createElement('button'); x.className = 'tr-btn off'; x.textContent = '✕'; x.title = 'Quitar'; x.onclick = () => { const st = loadStats(); st.friends = (st.friends || []).filter(f => f.uid !== r.uid); saveStats(st); renderRank(); }; } list.appendChild(rankRow(i, r, r.uid === s.uid, x)); });
+    }
+  } catch (e) { if (my === rankBusy) list.innerHTML = '<div class="tr-next" style="text-align:center;padding:14px">No se pudo cargar el ranking. Comprueba tu conexión e inténtalo de nuevo.</div>'; }
 }
 
 // ---------- PANTALLA DE TIENDA ----------
@@ -2319,7 +2670,7 @@ function renderShop() {
 }
 
 
-function syncSettingsUI() { document.getElementById('setMusic').value = settings.music; document.getElementById('setSfx').value = settings.sfx; document.getElementById('setTouch').value = settings.touch; document.getElementById('setVib').checked = settings.vibrate; document.getElementById('setCardColor').value = settings.cardColor; document.getElementById('setUseCard').checked = settings.useCardColor;
+function syncSettingsUI() { document.getElementById('setMusic').value = settings.music; document.getElementById('setSfx').value = settings.sfx; document.getElementById('setTouch').value = settings.touch; document.getElementById('setVib').checked = settings.vibrate; document.getElementById('setCardColor').value = settings.cardColor; document.getElementById('setUseCard').checked = settings.useCardColor; document.getElementById('setRank').checked = settings.rankOptIn; document.getElementById('setLang').value = settings.lang || 'auto';
   document.getElementById('setMusicV').textContent = settings.music + '%'; document.getElementById('setSfxV').textContent = settings.sfx + '%'; document.getElementById('setTouchV').textContent = settings.touch + '%'; }
 document.getElementById('settingsBtn').addEventListener('click', () => { initAudio(); playSfx('click'); syncSettingsUI(); document.getElementById('settingsModal').classList.add('open'); });
 const closeSettings = () => { document.getElementById('settingsModal').classList.remove('open'); saveSettings(); };
@@ -2327,10 +2678,14 @@ document.getElementById('setClose').addEventListener('click', closeSettings); do
 [['setMusic', 'music'], ['setSfx', 'sfx'], ['setTouch', 'touch']].forEach(([id, k]) => document.getElementById(id).addEventListener('input', e => { settings[k] = +e.target.value; applySettings(); syncSettingsUI(); if (k === 'sfx') playSfx('click'); }));
 document.getElementById('setCardColor').addEventListener('input', e => { settings.cardColor = e.target.value; settings.useCardColor = true; document.getElementById('setUseCard').checked = true; });
 document.getElementById('setUseCard').addEventListener('change', e => { settings.useCardColor = e.target.checked; });
+document.getElementById('setLang').addEventListener('change', e => { settings.lang = e.target.value; saveSettings(); applySettings(); });
+document.getElementById('setRank').addEventListener('change', async e => { settings.rankOptIn = e.target.checked; saveSettings(); const se = getSession(); if (se) { try { if (settings.rankOptIn) await publishMyScore(); else await accountBackend.deleteScore(se.uid); } catch (er) {} } });
 document.getElementById('setVib').addEventListener('change', e => { settings.vibrate = e.target.checked; if (settings.vibrate) vib(60); });
 applySettings();
 document.getElementById('fsBtn').addEventListener('click', () => { goFullscreen(); });
 document.getElementById('trainBtn').addEventListener('click', () => { initAudio(); playSfx('click'); trainTab = dailyClaimables(trainState()) ? 'daily' : 'train'; renderTrain(); showScreen('trainScreen'); });
+document.getElementById('rankBtn').addEventListener('click', () => { initAudio(); playSfx('click'); rankTab = 'global'; renderRank(); showScreen('rankScreen'); });
+document.getElementById('rankBackBtn').addEventListener('click', () => { playSfx('click'); showScreen('welcomeBack'); renderStatsLine(); });
 document.getElementById('trainBackBtn').addEventListener('click', () => { playSfx('click'); showScreen('welcomeBack'); renderStatsLine(); });
 document.getElementById('trainTabD').addEventListener('click', () => { trainTab = 'daily'; renderTrain(); });
 document.getElementById('trainTabT').addEventListener('click', () => { trainTab = 'train'; renderTrain(); });
@@ -2461,7 +2816,7 @@ function rand(min, max) { return min + Math.random() * (max - min); }
 
 // ---------- AUDIO (sintetizado por código, sin archivos externos) ----------
 let audioCtx = null, masterGain = null, musicGain = null, sfxGain = null;
-let musicPlaying = false, musicTimer = null, audioMuted = false;
+let musicPlaying = false, audioMuted = false;
 
 function initAudio() {
   if (audioCtx) {
@@ -2471,10 +2826,11 @@ function initAudio() {
   try {
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     masterGain = audioCtx.createGain(); masterGain.gain.value = 0.55; masterGain.connect(audioCtx.destination);
-    musicGain = audioCtx.createGain(); musicGain.gain.value = 0.2; musicGain.connect(masterGain);
+    musicGain = audioCtx.createGain(); musicGain.gain.value = 0.55; musicGain.connect(masterGain);
     sfxGain = audioCtx.createGain(); sfxGain.gain.value = 0.8; sfxGain.connect(masterGain);
     if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
     applySettings();
+    screenMusic(document.body.dataset.screen);
   } catch (e) { console.warn('Audio no disponible:', e); }
 }
 
@@ -2491,25 +2847,56 @@ function tone(freq, duration, type, bus, startTime, vol) {
   osc.start(startTime); osc.stop(startTime + duration + 0.03);
 }
 
+// ---------- SÍNTESIS: percusión, bajos, leads, efectos (todo original, sin archivos de audio) ----------
+const mtof = n => 440 * Math.pow(2, (n - 69) / 12);
+let noiseBuf = null;
+function getNoise() { if (!noiseBuf) { const len = audioCtx.sampleRate; noiseBuf = audioCtx.createBuffer(1, len, audioCtx.sampleRate); const d = noiseBuf.getChannelData(0); for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1; } return noiseBuf; }
+function noiseHit(bus, t, dur, vol, type, f0, f1, q) {
+  const src = audioCtx.createBufferSource(); src.buffer = getNoise();
+  const flt = audioCtx.createBiquadFilter(); flt.type = type || 'bandpass'; flt.frequency.setValueAtTime(f0, t); if (f1) flt.frequency.exponentialRampToValueAtTime(f1, t + dur); flt.Q.value = q || 1;
+  const g = audioCtx.createGain(); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  src.connect(flt); flt.connect(g); g.connect(bus); src.start(t, Math.random() * 0.5); src.stop(t + dur + 0.02);
+}
+function sweep(bus, t, f0, f1, dur, type, vol, lp) {
+  const o = audioCtx.createOscillator(), g = audioCtx.createGain(); o.type = type || 'sine';
+  o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t + dur);
+  g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  let out = g; if (lp) { const f = audioCtx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = lp; g.connect(f); out = f; }
+  o.connect(g); out.connect(bus); o.start(t); o.stop(t + dur + 0.03);
+}
+function note(bus, t, f, dur, vol, type, lp, atk) {
+  const o = audioCtx.createOscillator(), g = audioCtx.createGain(), fl = audioCtx.createBiquadFilter();
+  o.type = type || 'square'; o.frequency.value = f; fl.type = 'lowpass'; fl.frequency.value = lp || 3000;
+  g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + (atk || 0.01)); g.gain.setValueAtTime(vol, t + Math.max(0.011, dur * 0.6)); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(fl); fl.connect(g); g.connect(bus); o.start(t); o.stop(t + dur + 0.03);
+}
+const kick = (b, t, v) => { sweep(b, t, 160, 42, 0.2, 'sine', v); noiseHit(b, t, 0.02, v * 0.3, 'lowpass', 2000, 800, 1); };
+const snare = (b, t, v) => { noiseHit(b, t, 0.15, v, 'highpass', 1800, 3200, 0.7); sweep(b, t, 230, 150, 0.09, 'triangle', v * 0.6); };
+const hat = (b, t, v, open) => noiseHit(b, t, open ? 0.13 : 0.04, v, 'highpass', 7000, 9500, 0.5);
+
 function playSfx(type) {
   if (!audioCtx || audioMuted) return;
-  const t = audioCtx.currentTime;
-  if (type === 'shoot') tone(680, 0.07, 'square', sfxGain, t, 0.22);
-  else if (type === 'shootHeavy') tone(200, 0.16, 'sawtooth', sfxGain, t, 0.3);
-  else if (type === 'shootMagic') { tone(880, 0.1, 'sine', sfxGain, t, 0.18); tone(1320, 0.12, 'sine', sfxGain, t + 0.03, 0.14); }
-  else if (type === 'shootMelee') tone(320, 0.06, 'square', sfxGain, t, 0.25);
-  else if (type === 'hit') tone(170, 0.07, 'square', sfxGain, t, 0.22);
-  else if (type === 'botDeath') { tone(440, 0.1, 'sawtooth', sfxGain, t, 0.28); tone(220, 0.16, 'sawtooth', sfxGain, t + 0.08, 0.24); }
-  else if (type === 'super') { [523, 659, 784, 1046].forEach((f, i) => tone(f, 0.13, 'square', sfxGain, t + i * 0.06, 0.28)); }
-  else if (type === 'damage') tone(140, 0.13, 'sawtooth', sfxGain, t, 0.3);
-  else if (type === 'click') tone(900, 0.045, 'square', sfxGain, t, 0.14);
-  else if (type === 'thud') tone(110, 0.06, 'triangle', sfxGain, t, 0.12);
-  else if (type === 'tick') tone(1300, 0.028, 'square', sfxGain, t, 0.05);
-  else if (type === 'pickup') { tone(700, 0.08, 'triangle', sfxGain, t, 0.22); tone(1050, 0.1, 'triangle', sfxGain, t + 0.06, 0.2); tone(1400, 0.12, 'triangle', sfxGain, t + 0.12, 0.18); }
-  else if (type === 'reelStop') { tone(260, 0.09, 'square', sfxGain, t, 0.22); tone(780, 0.12, 'triangle', sfxGain, t + 0.04, 0.16); }
-  else if (type === 'rareReveal') { [659, 784, 988, 1318].forEach((f, i) => tone(f, 0.16, 'triangle', sfxGain, t + i * 0.07, 0.22)); }
-  else if (type === 'victory') { [523, 659, 784, 1046, 1318].forEach((f, i) => tone(f, 0.2, 'square', sfxGain, t + i * 0.12, 0.28)); }
-  else if (type === 'defeat') { [392, 349, 311, 262].forEach((f, i) => tone(f, 0.26, 'sawtooth', sfxGain, t + i * 0.15, 0.28)); }
+  const t = audioCtx.currentTime, S = sfxGain;
+  if (type === 'shoot') { sweep(S, t, 950, 380, 0.08, 'square', 0.14, 4000); noiseHit(S, t, 0.03, 0.05, 'highpass', 4000, 6000); }
+  else if (type === 'shootHeavy') { sweep(S, t, 230, 60, 0.24, 'sawtooth', 0.26, 900); noiseHit(S, t, 0.2, 0.14, 'lowpass', 900, 200, 0.7); }
+  else if (type === 'shootMagic') { sweep(S, t, 700, 1500, 0.14, 'sine', 0.16); sweep(S, t + 0.03, 1000, 2100, 0.14, 'sine', 0.1); }
+  else if (type === 'shootMelee') { noiseHit(S, t, 0.1, 0.2, 'bandpass', 1500, 350, 1.4); sweep(S, t, 300, 160, 0.07, 'triangle', 0.1); }
+  else if (type === 'hit') { noiseHit(S, t, 0.06, 0.16, 'bandpass', 1100, 500, 1.2); sweep(S, t, 180, 80, 0.09, 'square', 0.14, 700); }
+  else if (type === 'botDeath') { sweep(S, t, 520, 70, 0.32, 'sawtooth', 0.22, 1400); noiseHit(S, t, 0.28, 0.2, 'lowpass', 2600, 300, 0.8); sweep(S, t + 0.05, 90, 40, 0.3, 'sine', 0.24); }
+  else if (type === 'super') { sweep(S, t, 180, 1300, 0.45, 'sawtooth', 0.16, 2600); [0, 4, 7, 12].forEach((s, i) => note(S, t + 0.3 + i * 0.03, mtof(72 + s), 0.28, 0.1, 'square', 3000)); noiseHit(S, t + 0.28, 0.25, 0.12, 'highpass', 3000, 8000); }
+  else if (type === 'damage') { sweep(S, t, 140, 45, 0.2, 'sawtooth', 0.26, 500); noiseHit(S, t, 0.1, 0.12, 'lowpass', 1400, 400); }
+  else if (type === 'click') { note(S, t, 1000, 0.05, 0.1, 'square', 4000); }
+  else if (type === 'thud') sweep(S, t, 120, 60, 0.08, 'triangle', 0.14);
+  else if (type === 'tick') note(S, t, 1500, 0.03, 0.04, 'square', 5000);
+  else if (type === 'pickup') { [76, 83, 88].forEach((n, i) => note(S, t + i * 0.06, mtof(n), 0.12, 0.13, 'triangle', 5000)); }
+  else if (type === 'reelStop') { sweep(S, t, 300, 180, 0.08, 'square', 0.16, 1500); note(S, t + 0.04, 780, 0.12, 0.1, 'triangle'); }
+  else if (type === 'rareReveal') { [64, 67, 71, 76, 83].forEach((n, i) => note(S, t + i * 0.07, mtof(n), 0.3, 0.12, 'triangle', 5000)); noiseHit(S, t + 0.3, 0.4, 0.07, 'highpass', 5000, 9000); }
+  else if (type === 'victory') {
+    [[60, 64, 67], [65, 69, 72], [67, 71, 74], [72, 76, 79, 84]].forEach((ch, i) => ch.forEach(n => note(S, t + i * 0.18, mtof(n), i === 3 ? 0.9 : 0.22, 0.09, 'square', 3500)));
+    kick(S, t, 0.3); kick(S, t + 0.54, 0.3); noiseHit(S, t + 0.54, 0.7, 0.08, 'highpass', 4000, 9000);
+  }
+  else if (type === 'defeat') { [[57, 60, 64], [55, 58, 62], [53, 56, 60], [48, 51, 55]].forEach((ch, i) => ch.forEach(n => note(S, t + i * 0.28, mtof(n), i === 3 ? 1.0 : 0.3, 0.08, 'sawtooth', 1500))); sweep(S, t + 0.84, 90, 35, 0.9, 'sine', 0.26); }
+  else if (type === 'levelup') { [72, 76, 79, 84, 88].forEach((n, i) => note(S, t + i * 0.08, mtof(n), 0.22, 0.12, 'triangle', 5000)); noiseHit(S, t + 0.32, 0.4, 0.06, 'highpass', 5000, 9000); }
 }
 function playShootSfx(visual) {
   if (visual === 'orbe') playSfx('shootMagic');
@@ -2518,33 +2905,65 @@ function playShootSfx(visual) {
   else playSfx('shoot');
 }
 
-// Riff original de 12 notas, pensado para pegarse y repetirse sin cansar (bucle ~3s)
-const MELODY = [
-  { f: 523, d: 0.22 }, { f: 659, d: 0.22 }, { f: 784, d: 0.22 }, { f: 659, d: 0.22 },
-  { f: 523, d: 0.22 }, { f: 784, d: 0.22 }, { f: 988, d: 0.32 }, { f: 784, d: 0.32 },
-  { f: 659, d: 0.22 }, { f: 523, d: 0.22 }, { f: 587, d: 0.22 }, { f: 659, d: 0.42 }
-];
-function scheduleMelody(startTime) {
-  let t = startTime;
-  MELODY.forEach(n => { tone(n.f, n.d * 0.88, 'triangle', musicGain, t, 0.2); t += n.d; });
-  return t - startTime;
+// ---------- MÚSICA: secuenciador de 16 pasos y 4 compases, con 4 temas originales ----------
+const MB = () => musicGain;
+const TRACKS = {
+  menu: { bpm: 92, play(st, bar, t, sd) {
+    const ch = [[57, 60, 64], [53, 57, 60], [48, 52, 55], [55, 59, 62]][bar], root = [45, 41, 48, 43][bar], b = MB();
+    if (st === 0) ch.forEach(n => note(b, t, mtof(n), sd * 16, 0.05, 'triangle', 1800, 0.5));
+    if (st === 0 || st === 8) note(b, t, mtof(root), sd * 6, 0.16, 'triangle', 600);
+    if (st % 2 === 0) { const k = [0, 1, 2, 1, 0, 1, 2, 1][st / 2]; note(b, t, mtof(ch[k] + 12), sd * 1.8, 0.05, 'triangle', 3000); }
+    const mel = [[[0, 76, 3], [4, 79, 3], [8, 81, 6]], [[0, 81, 3], [4, 77, 3], [8, 79, 6]], [[0, 79, 3], [4, 76, 3], [8, 72, 3], [12, 76, 3]], [[0, 74, 3], [4, 79, 3], [8, 83, 6]]][bar];
+    mel.forEach(([s, n, l]) => { if (s === st) note(b, t, mtof(n), sd * l, 0.08, 'triangle', 2500, 0.02); });
+    if (st === 0 || st === 8) kick(b, t, 0.2); if (st === 4 || st === 12) hat(b, t, 0.025);
+  } },
+  battle: { bpm: 142, play(st, bar, t, sd) {
+    const b = MB(), ch = [[52, 55, 59], [48, 52, 55], [50, 54, 57], [47, 50, 54]][bar], root = [40, 36, 38, 35][bar];
+    if ([0, 2, 3, 6, 8, 10, 11, 14].includes(st)) note(b, t, mtof(root + (st === 6 || st === 14 ? 12 : 0)), sd * 1.5, 0.2, 'sawtooth', 700);
+    if (st % 4 === 0 || (st === 10 && bar % 2)) kick(b, t, 0.34); if (st === 4 || st === 12) snare(b, t, 0.26);
+    if (st % 2 === 0) hat(b, t, st === 14 ? 0.09 : 0.06, st === 14);
+    if ([0, 6, 10].includes(st)) ch.forEach(n => note(b, t, mtof(n + 12), sd * 1.1, 0.04, 'square', 2200));
+    const riff = [[[0, 76, 2], [3, 79, 1], [4, 83, 2], [7, 81, 1], [8, 79, 3], [12, 76, 2]], [[0, 72, 2], [3, 76, 1], [4, 79, 2], [7, 76, 1], [8, 72, 3], [12, 79, 2]], [[0, 74, 2], [3, 78, 1], [4, 81, 2], [7, 78, 1], [8, 74, 3], [12, 81, 2]], [[0, 71, 2], [3, 74, 1], [4, 78, 2], [7, 74, 1], [8, 83, 2], [10, 81, 2], [12, 78, 4]]][bar];
+    riff.forEach(([s, n, l]) => { if (s === st) note(b, t, mtof(n), sd * l * 0.95, 0.06, 'square', 2600); });
+  } },
+  sport: { bpm: 126, play(st, bar, t, sd) {
+    const b = MB(), root = [36, 31, 33, 29][bar], ch = [[60, 64, 67], [55, 59, 62], [57, 60, 64], [53, 57, 60]][bar];
+    if (st % 4 === 2) note(b, t, mtof(root + 12), sd * 1.6, 0.18, 'sawtooth', 900);
+    if (st % 4 === 0) kick(b, t, 0.32); if (st === 4 || st === 12) snare(b, t, 0.22); if (st % 4 === 2) hat(b, t, 0.07, true);
+    if (st === 0 || st === 6 || st === 10) ch.forEach(n => note(b, t, mtof(n + 12), sd * 1.4, 0.04, 'square', 2400));
+    const mel = [[[0, 76, 2], [2, 79, 2], [4, 81, 2], [6, 79, 2], [8, 76, 4], [12, 74, 2]], [[0, 74, 2], [2, 79, 2], [4, 83, 2], [6, 79, 2], [8, 74, 4], [12, 76, 2]], [[0, 72, 2], [2, 76, 2], [4, 81, 2], [6, 84, 2], [8, 81, 4], [12, 79, 2]], [[0, 77, 2], [2, 81, 2], [4, 79, 2], [6, 76, 2], [8, 72, 6]]][bar];
+    mel.forEach(([s, n, l]) => { if (s === st) note(b, t, mtof(n), sd * l * 0.9, 0.07, 'triangle', 3500); });
+  } },
+  tense: { bpm: 152, play(st, bar, t, sd) {
+    const b = MB(), root = [38, 39, 38, 33][bar];
+    note(b, t, mtof(root + (st % 8 === 3 ? 12 : 0)), sd * 0.85, st % 4 === 0 ? 0.2 : 0.13, 'sawtooth', 650);
+    if ([0, 3, 6, 8, 11, 14].includes(st)) kick(b, t, 0.36); if (st === 4 || st === 12) snare(b, t, 0.3); hat(b, t, st % 4 === 2 ? 0.08 : 0.04);
+    const L = [[[0, 74, 2], [2, 75, 2], [4, 69, 4], [8, 74, 2], [10, 75, 2], [12, 81, 4]], [[0, 75, 2], [2, 74, 2], [4, 70, 4], [8, 75, 2], [10, 74, 2], [12, 82, 4]], [[0, 74, 2], [2, 75, 2], [4, 69, 4], [8, 74, 2], [10, 75, 2], [12, 81, 4]], [[0, 69, 2], [2, 70, 2], [4, 76, 4], [8, 69, 2], [10, 72, 2], [12, 76, 4]]][bar];
+    L.forEach(([s, n, l]) => { if (s === st) { note(b, t, mtof(n), sd * l * 0.9, 0.065, 'sawtooth', 2400); note(b, t, mtof(n) * 1.0075, sd * l * 0.9, 0.04, 'square', 2000); } });
+  } }
+};
+let curTrack = null, mStep = 0, mNext = 0, mTimer = null, musicWant = null;
+function musicTick() {
+  if (!musicPlaying || !audioCtx) return;
+  const T = TRACKS[curTrack], sd = 60 / T.bpm / 4;
+  while (mNext < audioCtx.currentTime + 0.15) { T.play(mStep % 16, Math.floor(mStep / 16) % 4, mNext, sd); mStep++; mNext += sd; }
 }
-function startMusic() {
-  if (!audioCtx || audioMuted || musicPlaying) return;
-  musicPlaying = true;
-  const loop = () => {
-    if (!musicPlaying) return;
-    const dur = scheduleMelody(audioCtx.currentTime + 0.05);
-    musicTimer = setTimeout(loop, dur * 1000);
-  };
-  loop();
+function startMusic(name) {
+  name = name || musicWant || 'battle';
+  if (!audioCtx || audioMuted || !TRACKS[name]) return;
+  if (musicPlaying && curTrack === name) return;
+  stopMusic(); curTrack = name; musicPlaying = true; mStep = 0; mNext = audioCtx.currentTime + 0.08; mTimer = setInterval(musicTick, 40);
 }
-function stopMusic() { musicPlaying = false; if (musicTimer) clearTimeout(musicTimer); }
+function stopMusic() { musicPlaying = false; if (mTimer) clearInterval(mTimer); mTimer = null; }
+function setMusic(name) { musicWant = name; startMusic(name); }
+function trackForMode() { return gameMode === 'ball' ? 'sport' : (gameMode === 'survival' ? 'battle' : (bots.some(b => b.isBoss && b.alive) ? 'tense' : 'battle')); }
+const MENU_SCREENS = ['welcomeBack', 'modeSelectScreen', 'fusionScreen', 'shopScreen', 'trainScreen', 'rankScreen', 'creator', 'matchEndScreen', 'loadingScreen', 'teamIntroScreen'];
+function screenMusic(id) { if (!audioCtx || gameActive || !MENU_SCREENS.includes(id)) return; if (id === 'matchEndScreen') return; if (!(musicPlaying && curTrack === 'menu')) setMusic('menu'); }
 function toggleMute() {
   audioMuted = !audioMuted;
   const btn = document.getElementById('muteBtn');
   if (btn) btn.textContent = audioMuted ? '🔇' : '🔊';
-  if (audioMuted) stopMusic(); else if (gameActive) startMusic();
+  if (audioMuted) stopMusic(); else if (musicWant) startMusic(musicWant);
 }
 
 // Empuja a una entidad (jugador o bot) fuera de cualquier árbol/roca con el que se solape.
@@ -5317,7 +5736,7 @@ let storm = null;
 function updateStorm(dt) {
   if (!storm) return;
   storm.t += dt;
-  if (storm.t > storm.delay) { const k = Math.min(1, (storm.t - storm.delay) / storm.dur); storm.r = storm.r0 + (storm.minR - storm.r0) * k; if (!storm.warned) { storm.warned = true; flashMessage('⚠️ ¡La tormenta se cierra!', 1600); } }
+  if (storm.t > storm.delay) { const k = Math.min(1, (storm.t - storm.delay) / storm.dur); storm.r = storm.r0 + (storm.minR - storm.r0) * k; if (!storm.warned) { storm.warned = true; flashMessage('⚠️ ¡La tormenta se cierra!', 1600); setMusic('tense'); } }
   storm.tick += dt; const hit = storm.tick >= 0.5; if (hit) storm.tick = 0;
   [player, ...bots].forEach(e => {
     if (!e.alive || Math.hypot(e.x - storm.cx, e.y - storm.cy) <= storm.r) return;
@@ -5365,6 +5784,7 @@ function spawnWave(n) {
     const b = spawnBot(); b.isBoss = true; b.r = 30; b.maxHp = b.hp = Math.round((300 + n * 50) * curDiff().hp); b.baseDamage = Math.round(b.baseDamage * 1.35); b.speed = b.baseSpeed = b.speed * 0.92; b.color = '#ff3030'; b.traits.outfit = '#7a0f0f'; place(b); bots.push(b);
   }
   wave.n = n; wave.cleared = false; wave.timer = 2;
+  if (gameActive) setMusic(isBoss ? 'tense' : 'battle');
   bots.forEach(b => pushOutOfObstacles(b));
   flashMessage(isBoss ? `⚠️ OLEADA ${n}: ¡JEFE!` : `Oleada ${n}`, 1700);
 }
@@ -5653,7 +6073,7 @@ function showLoadingScreen(fusion) {
   showLoader({ fusion, duration: 3000, onDone: () => showTeamIntro(() => {
     showScreen('gameScreen');
     gameActive = true;
-    startMusic();
+    setMusic(trackForMode());
     // las instrucciones se atenúan a los 10 s para no tapar el mapa (pasa el ratón por encima para verlas)
     const ins = document.getElementById('instructions');
     ins.style.opacity = 1;
@@ -5664,7 +6084,7 @@ function showLoadingScreen(fusion) {
 
 function endMatch(won) {
   gameActive = false; hitStop = 0; slowT = 0; zoomPunch = 0;
-  stopMusic();
+  stopMusic(); musicWant = 'menu'; setTimeout(() => { if (!gameActive) setMusic('menu'); }, 3200);
   playSfx(won ? 'victory' : 'defeat');
   const elapsed = ((performance.now() - matchStartTime) / 1000).toFixed(1);
   const survivorsLeft = bots.filter(b => b.alive).length;
@@ -5685,7 +6105,7 @@ function endMatch(won) {
   stats.hours = (stats.hours || 0) + hoursEarned;
   const P = ensurePass(stats), lvB = passLevel(P.xp), xpEarned = Math.round((25 + killsThisMatch * (gameMode === 'ball' ? 12 : 4) + (won ? 40 : 0) + Math.min(60, parseFloat(elapsed) / 4)) * curDiff().reward); P.xp += xpEarned; const lvA = passLevel(P.xp);
   applyDailyProgress(stats, { mode: gameMode, won, kills: killsThisMatch, supers: matchSupers, deaths: deathsThisMatch, elapsed: parseFloat(elapsed) });
-  saveStats(stats);
+  saveStats(stats); publishMyScore();
 
   document.getElementById('endTitle').textContent = won ? '¡Victoria!' : (gameMode === 'ball' ? 'Derrota' : 'Has caído');
   document.getElementById('endSubtitle').textContent = gameMode === 'ball' ? `Rondas: ${ballMatch.winsA} – ${ballMatch.winsB}` : won
@@ -5734,6 +6154,7 @@ function loop(now) {
   requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);
+try { if ('serviceWorker' in navigator && /^https?:/.test(location.protocol)) window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {})); } catch (e) {}
 </script>
 </body>
 </html>
