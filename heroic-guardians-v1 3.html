@@ -424,7 +424,7 @@
   .ti-top { display: flex; align-items: flex-end; justify-content: space-between; }
   .ti-photo { position: relative; width: clamp(40px, 12vh, 66px); height: clamp(40px, 12vh, 66px); border-radius: 50%; border: 3px solid; overflow: hidden; background: rgba(0,0,0,.4); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 22px; }
   .ti-photo img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-  .ti-av { height: clamp(70px, 24vh, 120px); width: auto; filter: drop-shadow(0 3px 4px rgba(0,0,0,.5)); }
+  .ti-av { height: clamp(90px, 33vh, 150px); width: auto; filter: drop-shadow(0 3px 4px rgba(0,0,0,.5)); }
   .ti-name { font-weight: 800; font-size: clamp(12px, 3.4vh, 17px); margin-top: 4px; text-shadow: 0 2px 0 rgba(0,0,0,.5); }
   .ti-tag { font-size: clamp(9px, 2.4vh, 11px); opacity: .9; letter-spacing: .5px; text-transform: uppercase; }
   .ti-stats { margin-top: 5px; background: rgba(0,0,0,.38); border-radius: 8px; padding: 5px 6px; }
@@ -1389,32 +1389,50 @@ function frontWeaponExtra(c, w) {
   c.restore();
 }
 
-function drawCharacter(ctx2, cx, baseY, scale, t, bob, eqOv) {
+// Poses de combate (vista frontal). Ángulos en radianes; positivo = giro horario.
+// lean: inclinación del cuerpo · y: desplazamiento vertical · aL/aR: brazos · lL/lR: piernas · wt: arma respecto a la mano · head: cabeza · mouth: boca abierta
+const POSES = {
+  guard:  { lean: 0.05, aL: -0.55, aR: -1.0, wt: -0.35, lL: 0.28, lR: -0.28, head: 0.04 },
+  crouch: { lean: 0.14, y: 10, aL: 0.55, aR: -0.75, wt: -0.2, lL: 0.55, lR: -0.55, head: 0.1 },
+  slash:  { lean: 0.16, aL: 0.5, aR: -2.65, wt: -0.35, lL: 0.4, lR: -0.45, head: 0.1 },
+  strike: { lean: -0.12, aL: 0.9, aR: -1.5, wt: -0.95, lL: 0.42, lR: -0.55, head: -0.06 },
+  punch:  { lean: 0.12, aL: 0.35, aR: -1.55, wt: -0.2, lL: 0.4, lR: -0.4, head: 0.05, mouth: 0.4 },
+  kick:   { lean: -0.28, y: -16, aL: 1.1, aR: -2.0, wt: -0.3, lL: 0.7, lR: -1.3, head: -0.1, mouth: 0.3 },
+  leap:   { lean: 0.18, y: -30, aL: 1.9, aR: -2.1, wt: -0.2, lL: 0.7, lR: -0.65, head: -0.12, mouth: 0.5 },
+  roar:   { lean: -0.06, aL: 1.35, aR: -1.45, wt: -0.5, lL: 0.28, lR: -0.28, head: -0.16, mouth: 1 }
+};
+function drawCharacter(ctx2, cx, baseY, scale, t, bob, eqOv, pose) {
+  const P = pose ? POSES[pose] : null;
   const eq = eqOv || getEq(), nowS = performance.now() / 1000;
   ctx2.clearRect(0, 0, ctx2.canvas.width, ctx2.canvas.height);
   ctx2.save(); ctx2.translate(cx, baseY + bob); ctx2.scale(scale, scale);
   const oL = shadeColor(t.outfit, 0.22), oD = shadeColor(t.outfit, -0.32), sD = shadeColor(t.skin, -0.2);
   ctx2.fillStyle = 'rgba(0,0,0,0.35)';
   ctx2.beginPath(); ctx2.ellipse(0, 108, 46, 10, 0, 0, Math.PI * 2); ctx2.fill();
+  if (P) { ctx2.translate(0, P.y || 0); ctx2.translate(0, 60); ctx2.rotate(P.lean || 0); ctx2.translate(0, -60); }
   if (eq.aura) drawAuraAt(ctx2, 0, 28, 64, eq.aura, nowS);
   if (eq.trail) trailSample(ctx2, eq.trail, -34, 104, nowS);
   hairBackFront(ctx2, t);
   if (eq.cape) capeFront(ctx2, eq.cape);
   // piernas con pantalón y botas
   [-1, 1].forEach(sd => {
+    ctx2.save(); if (P) { ctx2.translate(sd * 16, 44); ctx2.rotate(sd < 0 ? P.lL : P.lR); ctx2.translate(-sd * 16, -44); }
     const lg = ctx2.createLinearGradient(sd * 16 - 10, 0, sd * 16 + 10, 0); lg.addColorStop(0, '#3a3f4d'); lg.addColorStop(1, '#232733');
     ctx2.fillStyle = lg; ctx2.beginPath(); ctx2.roundRect(sd * 16 - 10, 40, 20, 50, 8); ctx2.fill();
     ctx2.fillStyle = '#2c2016'; ctx2.beginPath(); ctx2.roundRect(sd * 16 - 12, 84, 24, 16, [4, 4, 8, 8]); ctx2.fill();
     ctx2.fillStyle = '#4a3a2a'; ctx2.beginPath(); ctx2.roundRect(sd * 16 - 12, 84, 24, 5, 3); ctx2.fill();
     ctx2.fillStyle = 'rgba(255,255,255,0.12)'; ctx2.fillRect(sd * 16 - 8, 86, 5, 10);
+    ctx2.restore();
   });
   // brazos con manga, puño y mano
   [-1, 1].forEach(sd => {
+    ctx2.save(); if (P) { ctx2.translate(sd * 43, -18); ctx2.rotate(sd < 0 ? P.aL : P.aR); ctx2.translate(-sd * 43, 18); }
     const ag = ctx2.createLinearGradient(sd * 43 - 9, 0, sd * 43 + 9, 0); ag.addColorStop(0, sd < 0 ? oL : t.outfit); ag.addColorStop(1, sd < 0 ? t.outfit : oD);
     ctx2.fillStyle = ag; ctx2.beginPath(); ctx2.roundRect(sd * 43 - 9, -20, 18, 56, 9); ctx2.fill();
     ctx2.fillStyle = oD; ctx2.fillRect(sd * 43 - 9, 26, 18, 6);
     ctx2.fillStyle = t.skin; ctx2.beginPath(); ctx2.arc(sd * 43, 38, 10, 0, Math.PI * 2); ctx2.fill();
     ctx2.fillStyle = 'rgba(0,0,0,0.12)'; ctx2.beginPath(); ctx2.arc(sd * 43 + 3, 41, 8, 0, Math.PI); ctx2.fill();
+    ctx2.restore();
   });
   // torso con volumen, cuello en V, cinturón y hebilla
   const tg = ctx2.createLinearGradient(-34, -30, 34, 46); tg.addColorStop(0, oL); tg.addColorStop(0.5, t.outfit); tg.addColorStop(1, oD);
@@ -1427,7 +1445,11 @@ function drawCharacter(ctx2, cx, baseY, scale, t, bob, eqOv) {
   ctx2.fillStyle = sD; ctx2.beginPath(); ctx2.moveTo(-14, -30); ctx2.lineTo(14, -30); ctx2.lineTo(0, -12); ctx2.closePath(); ctx2.fill();
   ctx2.fillStyle = sD; ctx2.fillRect(-9, -40, 18, 16);
   if (eq.cape) capeClasp(ctx2, eq.cape);
-  frontWeapon(ctx2, t);
+  if (P) {
+    if (t.weapon === 'guantes') { [-1, 1].forEach(sd => { ctx2.save(); ctx2.translate(sd * 43, -18); ctx2.rotate(sd < 0 ? P.aL : P.aR); ctx2.translate(-sd * 43, 18); frontGlove(ctx2, sd * 43, 34, '#c62828', sd); ctx2.restore(); }); }
+    else { ctx2.save(); ctx2.translate(43, -18); ctx2.rotate(P.aR); ctx2.translate(-43, 18); ctx2.translate(43, 38); ctx2.rotate(P.wt || 0); ctx2.translate(-43, -38); frontWeapon(ctx2, t); ctx2.restore(); }
+  } else frontWeapon(ctx2, t);
+  ctx2.save(); if (P && P.head) { ctx2.translate(0, -28); ctx2.rotate(P.head); ctx2.translate(0, 28); }
   // cabeza con volumen, orejas, ojos, cejas, nariz y boca
   const hgr = ctx2.createRadialGradient(-7, -58, 3, 0, -50, 28); hgr.addColorStop(0, shadeColor(t.skin, 0.2)); hgr.addColorStop(1, shadeColor(t.skin, -0.12));
   ctx2.fillStyle = shadeColor(t.skin, -0.12); [-1, 1].forEach(sd => { ctx2.beginPath(); ctx2.arc(sd * 23.5, -49, 5.5, 0, Math.PI * 2); ctx2.fill(); });
@@ -1442,8 +1464,10 @@ function drawCharacter(ctx2, cx, baseY, scale, t, bob, eqOv) {
   ctx2.strokeStyle = shadeColor(t.skin, -0.28); ctx2.lineWidth = 1.8; ctx2.beginPath(); ctx2.moveTo(0, -48); ctx2.quadraticCurveTo(3, -42, 0, -41); ctx2.stroke();
   ctx2.strokeStyle = '#8a4a3a'; ctx2.lineWidth = 2; ctx2.beginPath(); ctx2.arc(0, -42, 7, 0.25 * Math.PI, 0.75 * Math.PI); ctx2.stroke();
   ctx2.fillStyle = 'rgba(220,100,90,0.16)'; [-1, 1].forEach(sd => { ctx2.beginPath(); ctx2.arc(sd * 14, -42, 4, 0, Math.PI * 2); ctx2.fill(); });
+  if (P && P.mouth) { ctx2.fillStyle = '#5a1a14'; ctx2.beginPath(); ctx2.ellipse(0, -41, 6.5, 2 + P.mouth * 5, 0, 0, Math.PI * 2); ctx2.fill(); ctx2.fillStyle = '#e8a090'; ctx2.beginPath(); ctx2.ellipse(0, -38.5 + P.mouth * 2, 3.5, 1.6 + P.mouth, 0, 0, Math.PI * 2); ctx2.fill(); }
   hairFrontTop(ctx2, t);
   if (eq.accessory) accFront(ctx2, eq.accessory);
+  ctx2.restore();
   if (eq.pet) drawPetAt(ctx2, eq.pet, -72, 94, 17, Math.PI * 0.15, nowS);
   ctx2.restore();
 }
@@ -2286,15 +2310,15 @@ function fusionStatRows(f, isBot) {
 function teamCard(c) {
   const el = document.createElement('div'); el.className = 'ti-card'; el.style.background = c.bg;
   const col = c.col || '#4fa8e0';
-  el.innerHTML = `<div class="ti-top"><div class="ti-photo" style="border-color:${col}"><span>${c.name[0]}</span><img src="characters/${c.slug}.png" alt="" onerror="this.remove()"></div><canvas class="ti-av" width="130" height="150"></canvas></div>
+  el.innerHTML = `<div class="ti-top"><div class="ti-photo" style="border-color:${col}"><span>${c.name[0]}</span><img src="characters/${c.slug}.png" alt="" onerror="this.remove()"></div><canvas class="ti-av" width="160" height="180"></canvas></div>
     <div class="ti-name">${c.name}</div><div class="ti-tag">${c.tag}</div><div class="ti-stats">${c.rows}</div>`;
   const cx = el.querySelector('canvas').getContext('2d');
-  drawCharacter(cx, 65, 78, 0.56, c.look, 0, c.eq || {});
+  drawCharacter(cx, 80, 100, 0.6, c.look, 0, c.eq || {}, c.pose);
   return el;
 }
 function buildTeams() {
   const f = player.fusion, tr = player.traits;
-  const botCard = (b, extra) => ({ name: b.fusion.picks[0].name, slug: b.fusion.picks[0].slug, col: ARCH_COLORS[b.fusion.picks[0].arch], tag: extra || ('Fusión ' + b.fusion.rarity), bg: lbPick(SHOP_ITEMS.cardbg).css, look: b.traits, rows: fusionStatRows(Object.assign({}, b.fusion, { vida: Math.round(b.maxHp) }), true) });
+  const botCard = (b, extra) => ({ name: b.fusion.picks[0].name, slug: b.fusion.picks[0].slug, col: ARCH_COLORS[b.fusion.picks[0].arch], tag: extra || ('Fusión ' + b.fusion.rarity), bg: lbPick(SHOP_ITEMS.cardbg).css, look: Object.assign({}, b.traits, { weapon: lbPick(LB_WEAPONS) }), rows: fusionStatRows(Object.assign({}, b.fusion, { vida: Math.round(b.maxHp) }), true) });
   const meCard = () => ({ name: tr.name || 'Tú', slug: f.picks[0].slug, col: ARCH_COLORS[f.picks[0].arch], tag: 'Tú · Fusión ' + f.rarity, bg: playerCardBg(f.picks[0].arch), look: tr, eq: getEq(), rows: fusionStatRows(f, false) });
   let t1, t2;
   if (gameMode === 'ball') {
@@ -2307,6 +2331,8 @@ function buildTeams() {
     const rivals = bots.slice().sort((a, b) => b.fusion.dmg - a.fusion.dmg).slice(0, 3);
     t2 = { title: gameMode === 'survival' ? 'RIVALES MÁS PELIGROSOS' : 'EQUIPO RIVAL', cards: rivals.map(b => botCard(b, 'Rival')), foot: bots.length > 3 ? `…y ${bots.length - 3} rivales más en el mapa` : '' };
   }
+  const P1 = ['slash', 'guard', 'strike'], P2 = ['roar', 'strike', 'slash'];
+  t1.cards.forEach((c, i) => c.pose = P1[i % 3]); t2.cards.forEach((c, i) => c.pose = P2[i % 3]);
   return [t1, t2];
 }
 function showTeamIntro(next) {
@@ -5227,9 +5253,9 @@ function startLoadingBattle() {
     b.fillStyle = 'rgba(0,0,30,0.22)'; b.beginPath(); b.arc(x, y, r, 0, 7); b.fill();
   }
   // --- siluetas
-  function silhouette(look, cols, rim, towardRight) {
+  function silhouette(look, cols, rim, towardRight, pose) {
     const sp0 = document.createElement('canvas'); sp0.width = 260; sp0.height = 300;
-    drawCharacter(sp0.getContext('2d'), 130, 160, 1, look, 0, look._eq || {});
+    drawCharacter(sp0.getContext('2d'), 130, 170, 1, look, 0, look._eq || {}, pose);
     { const x0 = sp0.getContext('2d'), id = x0.getImageData(0, 0, 260, 300), d = id.data; for (let i = 3; i < d.length; i += 4) if (d[i] < 150) d[i] = 0; x0.putImageData(id, 0, 0); }
     const tint = (fill) => { const t = document.createElement('canvas'); t.width = 260; t.height = 300; const x = t.getContext('2d'); x.drawImage(sp0, 0, 0); x.globalCompositeOperation = 'source-in'; x.fillStyle = fill; x.fillRect(0, 0, 260, 300); return t; };
     const body = (() => { const tg = document.createElement('canvas').getContext('2d').createLinearGradient(0, 40, 0, 270); tg.addColorStop(0, cols[0]); tg.addColorStop(1, cols[1]); return tint(tg); })();
@@ -5243,8 +5269,11 @@ function startLoadingBattle() {
     for (let y = 0; y < 300; y += 7) for (let x = ((y / 7) % 2) * 3.5; x < 260; x += 7) { const k = Math.max(0, 1 - Math.abs(x - (towardRight ? 215 : 45)) / 90); if (k > 0) { o.beginPath(); o.arc(x, y, 2.2 * k, 0, 7); o.fill(); } }
     return out;
   }
-  const mk = (side, outfit) => { const look = randomLook(outfit); look.weapon = lbPick(LB_WEAPONS); const e = {}; if (Math.random() < 0.6 && (SHOP_ITEMS.cape || []).length) e.cape = lbPick(SHOP_ITEMS.cape.map(i => i.value)); look._eq = e; return look; };
-  const sL = silhouette(mk(-1, '#fff'), th.sa, th.ra, true), sR = silhouette(mk(1, '#fff'), th.sb, th.rb, false);
+  const mk = (side, outfit) => { const look = randomLook(outfit); look.weapon = lbPick(LB_WEAPONS); const e = {}; look._eq = e; return look; };
+  const lookL = mk(-1, '#fff'), lookR = mk(1, '#fff');
+  const poseL = lbPick(['kick', 'leap', 'slash']), poseR = lbPick(['roar', 'slash', 'strike']);
+  const spL = { pre: silhouette(lookL, th.sa, th.ra, true, 'crouch'), hit: silhouette(lookL, th.sa, th.ra, true, poseL), alt: silhouette(lookL, th.sa, th.ra, true, 'guard') };
+  const spR = { pre: silhouette(lookR, th.sb, th.rb, false, 'guard'), hit: silhouette(lookR, th.sb, th.rb, false, poseR), alt: silhouette(lookR, th.sb, th.rb, false, 'crouch') };
   const S = H / 330;
   const parts = [], rings = []; let flash = 0, shake = 0, impacted = false;
   const t0 = performance.now(); let last = t0;
@@ -5272,11 +5301,11 @@ function startLoadingBattle() {
       const baseX = side < 0 ? W * 0.27 : W * 0.73, air = side < 0;
       const ex = baseX - side * W * 0.55 * (1 - ease(e));
       const yy = H * (air ? 0.44 : 0.6) + (air ? sway * 5 : sway2 * 3);
-      const rot = air ? 0.38 + sway * 0.03 : -0.2 + sway2 * 0.02;
-      const k = S * (air ? 1 : 1.08);
-      c.save(); c.translate(ex, yy); c.rotate(rot); c.scale((air ? 1 : -1) * k, k); c.drawImage(img, -130, -160); c.restore();
+      const rot = air ? 0.1 + sway * 0.03 : -0.05 + sway2 * 0.02;
+      const k = S * (air ? 1.1 : 1.18);
+      c.save(); c.translate(ex, yy); c.rotate(rot); c.scale((air ? 1 : -1) * k, k); c.drawImage(img, -130, -170); c.restore();
     };
-    place(sL, -1); place(sR, 1);
+    { const pick = sp => t < 0.55 ? sp.pre : (Math.floor((t - 0.55) / 0.85) % 2 === 0 ? sp.hit : sp.alt); place(pick(spL), -1); place(pick(spR), 1); }
     // impacto
     if (!impacted && t > 0.55) { impacted = true; flash = 0.9; shake = 14; rings.push({ x: cxMid, y: H * 0.45, r: 6, life: 0.5 });
       for (let i = 0; i < 40; i++) { const a = Math.random() * 6.283, v = 120 + Math.random() * 420; parts.push({ x: cxMid, y: H * 0.45, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 0.5 + Math.random() * 0.5, max: 1, sz: 2 + Math.random() * 3, col: Math.random() < 0.5 ? '#fff' : (Math.random() < 0.5 ? th.ra : th.rb) }); } }
