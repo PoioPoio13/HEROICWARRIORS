@@ -733,23 +733,23 @@
   <div class="mode-cards">
     <button class="mode-card" id="modeArenaBtn">
       <div class="mode-card-title">⚔️ Modo Arena</div>
-      <div class="mode-card-desc">Mapa clásico, reapareces al morir. Gana quien derrote a 10 rivales.</div>
+      <div class="mode-card-desc">Mapa clásico y partidas rápidas: gana quien derrote a 6 rivales. Reapareces al morir.</div>
     </button>
     <button class="mode-card" id="modeBallBtn">
       <div class="mode-card-title">⚽ Modo 3v3 Balón</div>
-      <div class="mode-card-desc">Tú y 2 aliados contra 3 rivales. Mete el balón en su portería a tiros o a empujones. Mejor de 3 rondas, un gol por ronda.</div>
+      <div class="mode-card-desc">Tú y 2 aliados contra 3 rivales. Mete el balón en su portería a tiros o a empujones. Mejor de 3 rondas de 45 s, un gol por ronda.</div>
     </button>
     <button class="mode-card" id="modeHillBtn">
       <div class="mode-card-title">👑 Rey de la colina</div>
-      <div class="mode-card-desc">Mantente solo dentro de la zona para sumar puntos. Gana quien llegue a 60 o tenga más a los 150 s.</div>
+      <div class="mode-card-desc">Mantente solo dentro de la zona para sumar puntos. Gana quien llegue a 40 o tenga más a los 100 s.</div>
     </button>
     <button class="mode-card" id="modeWavesBtn">
       <div class="mode-card-title">🌊 Oleadas</div>
-      <div class="mode-card-desc">6 oleadas de rivales cada vez más duras, con un jefe en la 3 y en la 6. 3 vidas y recuperas vida entre oleadas.</div>
+      <div class="mode-card-desc">4 oleadas de rivales cada vez más duras, con un jefe en la 2 y en la 4. 3 vidas y recuperas vida entre oleadas.</div>
     </button>
     <button class="mode-card" id="modeSurvivalBtn">
       <div class="mode-card-title">🏆 Modo Supervivencia</div>
-      <div class="mode-card-desc">Mapa mucho más grande, muchos rivales sueltos que también luchan entre ellos. Sin reaparecer — ni tú ni ellos. Gana quien quede en pie.</div>
+      <div class="mode-card-desc">Mapa grande con 8 rivales que también luchan entre ellos y una tormenta que se va cerrando. Sin reaparecer: gana quien quede en pie.</div>
     </button>
   </div>
 </div>
@@ -2182,7 +2182,7 @@ function passRewards() {
   const sp = { 3: 'cbg_cielo', 6: 'aura', 9: 'trail', 12: 'cbg_noche', 15: 'pet', 18: 'cape', 21: 'shot', 24: 'cbg_galaxia', 27: 'badge', 30: 'cbg_arcoiris' };
   const h = seedHash(passSeason()), arr = [null];
   for (let l = 1; l <= PASS_MAX; l++) {
-    if (sp[l]) { let id = sp[l]; if (SHOP_ITEMS[id]) { const items = SHOP_ITEMS[id]; id = items[(h + l) % items.length].id; } arr.push({ item: id }); }
+    if (sp[l]) { let id = sp[l]; if (PASS_POOL[id]) { const pool = PASS_POOL[id]; id = pool[(h + l) % pool.length]; } arr.push({ item: id }); }
     else arr.push({ frag: 40 + l * 6, hours: l % 5 === 0 ? 3 : (l % 2 ? 0 : 1) });
   }
   _passRewards = arr; _passRewardsSeason = passSeason(); return arr;
@@ -2293,6 +2293,8 @@ function renderShop() {
         btn.addEventListener('click', () => { if (equipped) delete shop.eq[cat]; else shop.eq[cat] = item.value; saveShop(shop); playSfx('click'); renderShop(); });
       } else if (owned) {
         btn.className = 'shop-item-btn owned'; btn.textContent = 'Adquirido'; btn.disabled = true;
+      } else if (item.passOnly) {
+        btn.className = 'shop-item-btn disabled'; btn.textContent = '🎖 Solo en el Pase'; btn.disabled = true; btn.title = 'Objeto exclusivo del Pase de temporada';
       } else {
         const canAfford = stats.fragments >= item.price;
         btn.className = 'shop-item-btn' + (canAfford ? '' : ' disabled');
@@ -2300,7 +2302,7 @@ function renderShop() {
         if (!canAfford) btn.disabled = true;
         btn.addEventListener('click', () => {
           const s = loadStats();
-          if (s.fragments < item.price) return;
+          if (item.passOnly || s.fragments < item.price) return;
           s.fragments -= item.price; saveStats(s);
           const sh = loadShop(); sh.owned.push(item.id);
           if (isEq) { sh.eq = sh.eq || {}; sh.eq[cat] = item.value; } // lo equipa al comprarlo
@@ -2362,6 +2364,9 @@ SHOP_ITEMS.cardbg = [
   { id: 'cbg_arcoiris', label: 'Fondo Arcoíris', value: 'arcoiris', price: 320, css: 'linear-gradient(135deg,#ff3b3b,#ffb300,#3ed17a,#2a8fff,#a43bff)' }
 ];
 SHOP_CATEGORY_LABELS.cardbg = 'Fondos de tu tarjeta de equipo';
+// Objetos EXCLUSIVOS del Pase de temporada: no se pueden comprar en la tienda
+const PASS_POOL = { cardbg: ['cbg_cielo', 'cbg_noche', 'cbg_galaxia', 'cbg_arcoiris'], aura: ['aura_estrellas', 'aura_arcoiris'], trail: ['trail_rayo', 'trail_arcoiris'], pet: ['pet_dragon', 'pet_dron'], cape: ['cape_galaxia', 'cape_arcoiris'], shot: ['shot_arcoiris', 'shot_dorado'], badge: ['badge_mitico', 'badge_elegido'] };
+Object.keys(PASS_POOL).forEach(c => PASS_POOL[c].forEach(id => { const it = (SHOP_ITEMS[c] || []).find(i => i.id === id); if (it) it.passOnly = true; }));
 SHOP_ORDER.push('cardbg'); EQUIP_CATS.push('cardbg');
 function cardBgCss(value) { const it = (SHOP_ITEMS.cardbg || []).find(i => i.value === value); return it ? it.css : null; }
 function playerCardBg(arch) {
@@ -3268,7 +3273,7 @@ function spawnBot(diffKey) {
 }
 let bots = [spawnBot(), spawnBot()];
 let kills = 0;
-const TARGET_KILLS = 10;
+const TARGET_KILLS = 6;
 const MAX_LIVES = 5; // en Arena, si mueres 5 veces en la misma partida, pierdes
 let deathsThisMatch = 0;
 const projectiles = [];
@@ -3574,7 +3579,7 @@ function initPowerups() {
   powerups = []; floatingTexts = []; resetBuffs(); lastBuffsHtml = '';
   powerupCfg = gameMode === 'tutorial' ? { max: 0, interval: 1e9, initial: 0 }
              : gameMode === 'ball' ? { max: 3, interval: 9, initial: 1 }
-             : gameMode === 'survival' ? { max: 12, interval: 4.5, initial: 7 } : { max: 3, interval: 8, initial: 2 };
+             : gameMode === 'survival' ? { max: 12, interval: 4.5, initial: 7 } : { max: 3, interval: 5, initial: 2 };
   powerupSpawnTimer = powerupCfg.interval * 0.6;
   for (let i = 0; i < powerupCfg.initial; i++) spawnPowerup();
 }
@@ -3856,7 +3861,7 @@ function aimAngle(bot, foe) {
 // =====================================================================
 const GOAL_D = 56;            // fondo de cada portería (zona detrás de la línea de gol)
 const GOAL_W = 190;           // ancho de la boca de la portería
-const ROUND_TIME = 75;        // segundos por ronda; después, prórroga a gol de oro
+const ROUND_TIME = 45;        // segundos por ronda; después, prórroga a gol de oro
 const WINS_NEEDED = 2;        // mejor de 3
 const BALL_MAX_SPEED = 780;
 const ball = { x: 0, y: 0, vx: 0, vy: 0, r: 13, spin: 0 };
@@ -4344,6 +4349,7 @@ function update(dt) {
   applyHazards(dt);
   if (gameMode === 'hill') updateHill(dt);
   if (gameMode === 'waves') updateWaves(dt);
+  if (gameMode === 'survival') updateStorm(dt);
   updatePowerups(dt);
   if (player.alive && player.regen && player.hp < player.maxHp) player.hp = Math.min(player.maxHp, player.hp + player.maxHp * player.regen * dt);
   if (!player.superActive) {
@@ -4445,6 +4451,7 @@ function update(dt) {
     }
     trackVelocity(bot, dt);
     if (gameMode === 'hill' && hillBotTravel(bot, dt)) return;
+    if (gameMode === 'survival' && stormBotFlee(bot, dt)) return;
     updateBotBrain(bot, dt);
   });
 
@@ -4532,7 +4539,7 @@ function damageBot(bot, dmg) {
       const lab = ['¡KO!', '¡DOBLE KO!', '¡TRIPLE KO!', '¡MÚLTIPLE!'][Math.min(3, killChain - 1)];
       addFloatingText(bot.x, bot.y - 44, lab, killChain > 1 ? '#ff5252' : '#fff', 24 + killChain * 3);
     }
-    bot.alive = false; bot.respawnTimer = bot.isDummy ? 1.2 : 2.2;
+    bot.alive = false; bot.respawnTimer = (bot.isDummy || gameMode === 'arena' || gameMode === 'hill') ? 1.2 : 2.2;
     playSfx('botDeath');
     if (gameMode === 'arena') {
       kills++;
@@ -5306,8 +5313,26 @@ function applyHazards(dt) {
   });
 }
 // ---------- REY DE LA COLINA ----------
+let storm = null;
+function updateStorm(dt) {
+  if (!storm) return;
+  storm.t += dt;
+  if (storm.t > storm.delay) { const k = Math.min(1, (storm.t - storm.delay) / storm.dur); storm.r = storm.r0 + (storm.minR - storm.r0) * k; if (!storm.warned) { storm.warned = true; flashMessage('⚠️ ¡La tormenta se cierra!', 1600); } }
+  storm.tick += dt; const hit = storm.tick >= 0.5; if (hit) storm.tick = 0;
+  [player, ...bots].forEach(e => {
+    if (!e.alive || Math.hypot(e.x - storm.cx, e.y - storm.cy) <= storm.r) return;
+    if (hit) { fxBurst(e.x, e.y, '#ff5a5a', 4, 100, 2.5, 0.3); if (e === player) damagePlayer(9, true); else { dmgSrcPlayer = false; damageBot(e, 9); } }
+  });
+  const el = document.getElementById('stormTxt'); if (el) el.textContent = storm.t < storm.delay ? `🌪 La tormenta llega en ${Math.ceil(storm.delay - storm.t)}s` : (storm.r <= storm.minR + 1 ? '🌪 Tormenta al máximo' : '🌪 La tormenta se cierra…');
+}
+function stormBotFlee(bot, dt) {
+  if (!storm) return false;
+  const d = Math.hypot(bot.x - storm.cx, bot.y - storm.cy);
+  if (d > storm.r - 50) { const a = Math.atan2(storm.cy - bot.y, storm.cx - bot.x); bot.x += Math.cos(a) * bot.speed * dt; bot.y += Math.sin(a) * bot.speed * dt; bot.angle = a; bot.moving = true; bot.walkPhase += dt * 11; pushOutOfObstacles(bot); return true; }
+  return false;
+}
 let hill = null;
-function initHill() { hill = { x: WORLD_W / 2, y: WORLD_H / 2, r: 100, p: 0, b: 0, t: 0, goal: 60, limit: 150, owner: 'n' }; obstacles = obstacles.filter(o => Math.hypot(o.x - hill.x, o.y - hill.y) > hill.r + o.r + 20); }
+function initHill() { hill = { x: WORLD_W / 2, y: WORLD_H / 2, r: 100, p: 0, b: 0, t: 0, goal: 40, limit: 100, owner: 'n' }; obstacles = obstacles.filter(o => Math.hypot(o.x - hill.x, o.y - hill.y) > hill.r + o.r + 20); }
 function hillBotTravel(bot, dt) {
   const dz = dist(bot, hill), dE = player.alive ? dist(bot, player) : 999;
   if (dz > hill.r * 0.6 && dE > 190) { const a = Math.atan2(hill.y - bot.y, hill.x - bot.x); bot.x += Math.cos(a) * bot.speed * dt; bot.y += Math.sin(a) * bot.speed * dt; bot.angle = a; bot.moving = true; bot.walkPhase += dt * 11; pushOutOfObstacles(bot); return true; }
@@ -5333,13 +5358,13 @@ function drawHill() {
 // ---------- OLEADAS ----------
 let wave = null;
 function spawnWave(n) {
-  const isBoss = n % 3 === 0, cnt = Math.min(7, n + 2); bots = [];
+  const isBoss = n % 2 === 0, cnt = Math.min(5, n + 1); bots = [];
   const place = b => { for (let k = 0; k < 20; k++) { b.x = rand(60, WORLD_W - 60); b.y = rand(60, WORLD_H - 60); if (Math.hypot(b.x - WORLD_W / 2, b.y - WORLD_H / 2) > 230) break; } };
   for (let i = 0; i < cnt; i++) { const b = spawnBot(); place(b); bots.push(b); }
   if (isBoss) {
-    const b = spawnBot(); b.isBoss = true; b.r = 30; b.maxHp = b.hp = Math.round((380 + n * 45) * curDiff().hp); b.baseDamage = Math.round(b.baseDamage * 1.35); b.speed = b.baseSpeed = b.speed * 0.92; b.color = '#ff3030'; b.traits.outfit = '#7a0f0f'; place(b); bots.push(b);
+    const b = spawnBot(); b.isBoss = true; b.r = 30; b.maxHp = b.hp = Math.round((300 + n * 50) * curDiff().hp); b.baseDamage = Math.round(b.baseDamage * 1.35); b.speed = b.baseSpeed = b.speed * 0.92; b.color = '#ff3030'; b.traits.outfit = '#7a0f0f'; place(b); bots.push(b);
   }
-  wave.n = n; wave.cleared = false; wave.timer = 3;
+  wave.n = n; wave.cleared = false; wave.timer = 2;
   bots.forEach(b => pushOutOfObstacles(b));
   flashMessage(isBoss ? `⚠️ OLEADA ${n}: ¡JEFE!` : `Oleada ${n}`, 1700);
 }
@@ -5347,12 +5372,13 @@ function updateWaves(dt) {
   if (!wave) return;
   const alive = bots.filter(b => b.alive).length, el = document.getElementById('waveTxt');
   if (el) el.innerHTML = `🌊 Oleada <b>${wave.n}</b> / ${wave.max} · Rivales: <b>${alive}</b>`;
-  if (alive > 0) { wave.timer = 3; wave.cleared = false; return; }
+  if (alive > 0) { wave.timer = 2; wave.cleared = false; return; }
   if (!wave.cleared) { wave.cleared = true; if (wave.n >= wave.max) { flashMessage('¡Todas las oleadas superadas!', 1500); setTimeout(() => { if (gameActive) endMatch(true); }, 1500); } else flashMessage(`Oleada ${wave.n} superada · +35% de vida`, 1600); }
   if (wave.n >= wave.max) return;
   wave.timer -= dt; if (wave.timer <= 0) { player.hp = Math.min(player.maxHp, player.hp + player.maxHp * 0.35); spawnWave(wave.n + 1); }
 }
 function drawModeExtras() {
+  if (storm) { ctx.save(); ctx.fillStyle = 'rgba(210,30,30,0.3)'; ctx.beginPath(); ctx.rect(camera.x - 60, camera.y - 60, W + 120, H + 120); ctx.arc(storm.cx, storm.cy, storm.r, 0, Math.PI * 2, true); ctx.fill('evenodd'); ctx.strokeStyle = 'rgba(255,90,90,0.9)'; ctx.lineWidth = 5; ctx.setLineDash([16, 10]); ctx.lineDashOffset = -performance.now() / 30; ctx.beginPath(); ctx.arc(storm.cx, storm.cy, storm.r, 0, Math.PI * 2); ctx.stroke(); ctx.restore(); }
   if (gameMode === 'hill') drawHill();
   bots.forEach(b => { if (b.isBoss && b.alive) { ctx.save(); ctx.strokeStyle = 'rgba(255,60,40,0.8)'; ctx.lineWidth = 3; ctx.setLineDash([8, 6]); ctx.lineDashOffset = -performance.now() / 40; ctx.beginPath(); ctx.arc(b.x, b.y, b.r + 8, 0, 7); ctx.stroke(); ctx.restore(); } });
 }
@@ -5361,7 +5387,7 @@ const arenaLike = () => gameMode === 'arena' || gameMode === 'hill' || gameMode 
 let gameActive = false;
 let matchStartTime = 0;
 function startMatch(savedTraits, fusion, mode) {
-  gameMode = mode || 'arena';
+  gameMode = mode || 'arena'; storm = null;
   FIELD_L = 0; FIELD_R = 0;
   fx.length = 0; shakeAmt = 0;
 
@@ -5371,9 +5397,10 @@ function startMatch(savedTraits, fusion, mode) {
     bots = [spawnTutorialDummy(W * 0.72, H * 0.42)];
     document.getElementById('scoreBoard').innerHTML = '';
   } else if (gameMode === 'survival') {
-    WORLD_W = W * 3; WORLD_H = H * 3;
-    obstacles = generateObstacles(WORLD_W, WORLD_H, 45);
-    bots = Array.from({ length: 11 }, () => spawnBot());
+    WORLD_W = Math.round(W * 2); WORLD_H = Math.round(H * 2);
+    obstacles = generateObstacles(WORLD_W, WORLD_H, 24);
+    bots = Array.from({ length: 8 }, () => spawnBot());
+    storm = { cx: WORLD_W / 2, cy: WORLD_H / 2, r0: Math.hypot(WORLD_W, WORLD_H) / 2 + 40, r: 0, minR: 170, delay: 10, dur: 60, t: 0, tick: 0, warned: false }; storm.r = storm.r0;
     document.getElementById('scoreBoard').textContent = '';
   } else if (gameMode === 'ball') {
     FIELD_L = GOAL_D; FIELD_R = GOAL_D;
@@ -5396,7 +5423,7 @@ function startMatch(savedTraits, fusion, mode) {
   } else if (gameMode === 'waves') {
     WORLD_W = W; WORLD_H = H;
     obstacles = generateObstacles(WORLD_W, WORLD_H, 10);
-    wave = { n: 0, max: 6, timer: 3, cleared: false }; spawnWave(1);
+    wave = { n: 0, max: 4, timer: 2, cleared: false }; spawnWave(1);
   } else {
     WORLD_W = W; WORLD_H = H;
     obstacles = generateObstacles(WORLD_W, WORLD_H, 10);
@@ -5436,7 +5463,7 @@ function startMatch(savedTraits, fusion, mode) {
     : gameMode === 'hill' ? '<span id="hillTxt"></span>'
     : gameMode === 'waves' ? '<span id="waveTxt"></span><br>Vidas: <span id="livesLeft">3</span>'
     : gameMode === 'survival'
-    ? `Rivales vivos: <span id="kills">${bots.length}</span>`
+    ? `Rivales vivos: <span id="kills">${bots.length}</span><br><span id="stormTxt"></span>`
     : `Rivales derrotados: <span id="kills">0</span> / <span id="killTarget">${TARGET_KILLS}</span><br>Vidas: <span id="livesLeft">${MAX_LIVES}</span>`;
   pushOutOfObstacles(player);
   bots.forEach(b => pushOutOfObstacles(b));
