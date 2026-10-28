@@ -139,6 +139,10 @@
   #matchEndScreen { flex-direction: column; align-items: center; justify-content: center; width: 100%; text-align: center; padding: 20px; }
 
   /* ===== PANTALLA: ELECCIÓN DE MODO ===== */
+  .diff-row { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 4px 0 2px; flex-wrap: wrap; font-size: 13px; color: var(--ink-dim); }
+  .diff-row button { background: var(--panel); color: var(--ink); border: 2px solid var(--line); border-radius: 999px; padding: 7px 16px; font-weight: 700; cursor: pointer; font-size: 13px; }
+  .diff-row button.on { background: var(--accent); color: #1a1006; border-color: var(--accent); }
+  .diff-note { font-size: 11.5px; color: var(--ink-dim); margin-bottom: 8px; min-height: 14px; }
   #modeSelectScreen { flex-direction: column; align-items: center; justify-content: center; width: 100%; padding: 20px; text-align: center; }
   .mode-cards { display: flex; gap: 18px; flex-wrap: wrap; justify-content: center; max-width: 760px; }
 
@@ -700,7 +704,7 @@
     <p class="shop-balance">⏱ <span id="trainHours">0</span> horas de entrenamiento</p>
     <p style="font-size:12px;color:var(--ink-dim);margin-top:4px">Ganas horas jugando partidas (más por victorias, eliminaciones y tiempo) y cobrando logros</p>
   </div>
-  <div class="tr-tabs"><button id="trainTabD" class="on">📅 Diarias</button><button id="trainTabT">💪 Mejoras</button><button id="trainTabA">🏅 Logros</button></div>
+  <div class="tr-tabs"><button id="trainTabD" class="on">📅 Diarias</button><button id="trainTabT">💪 Mejoras</button><button id="trainTabA">🏅 Logros</button><button id="trainTabP">🎖 Pase</button></div>
   <div class="tr-body" id="trainBody"></div>
   <button id="trainBackBtn" style="margin-top: 20px; background: none; border: none; color: var(--ink-dim); text-decoration: underline; cursor: pointer; font-size: 13px;">Volver</button>
 </div>
@@ -724,6 +728,8 @@
     <h1>¿Qué prefieres jugar?</h1>
     <p>Elige un modo antes de generar tu Fusión</p>
   </div>
+  <div class="diff-row" id="diffRow"><span>Dificultad de los rivales:</span><button data-d="facil">😊 Fácil</button><button data-d="normal">⚔️ Normal</button><button data-d="dificil">🔥 Difícil</button></div>
+  <div class="diff-note" id="diffNote"></div>
   <div class="mode-cards">
     <button class="mode-card" id="modeArenaBtn">
       <div class="mode-card-title">⚔️ Modo Arena</div>
@@ -732,6 +738,14 @@
     <button class="mode-card" id="modeBallBtn">
       <div class="mode-card-title">⚽ Modo 3v3 Balón</div>
       <div class="mode-card-desc">Tú y 2 aliados contra 3 rivales. Mete el balón en su portería a tiros o a empujones. Mejor de 3 rondas, un gol por ronda.</div>
+    </button>
+    <button class="mode-card" id="modeHillBtn">
+      <div class="mode-card-title">👑 Rey de la colina</div>
+      <div class="mode-card-desc">Mantente solo dentro de la zona para sumar puntos. Gana quien llegue a 60 o tenga más a los 150 s.</div>
+    </button>
+    <button class="mode-card" id="modeWavesBtn">
+      <div class="mode-card-title">🌊 Oleadas</div>
+      <div class="mode-card-desc">6 oleadas de rivales cada vez más duras, con un jefe en la 3 y en la 6. 3 vidas y recuperas vida entre oleadas.</div>
     </button>
     <button class="mode-card" id="modeSurvivalBtn">
       <div class="mode-card-title">🏆 Modo Supervivencia</div>
@@ -1594,7 +1608,7 @@ let currentFusion = null;
 
 document.getElementById('playBtn').addEventListener('click', () => {
   initAudio(); playSfx('click'); goFullscreen();
-  showScreen('modeSelectScreen');
+  syncDiffUI(); showScreen('modeSelectScreen');
 });
 document.getElementById('muteBtn').addEventListener('click', toggleMute);
 
@@ -1734,9 +1748,13 @@ function startFusionFlow(mode) {
   showScreen('fusionScreen');
 }
 
+function syncDiffUI() { document.querySelectorAll('#diffRow button').forEach(b => b.classList.toggle('on', b.dataset.d === settings.difficulty)); const D = curDiff(); document.getElementById('diffNote').textContent = settings.difficulty === 'normal' ? 'Recompensas normales' : `Recompensas ×${D.reward} (fragmentos y horas)`; }
+document.querySelectorAll('#diffRow button').forEach(b => b.addEventListener('click', () => { settings.difficulty = b.dataset.d; saveSettings(); playSfx('click'); syncDiffUI(); }));
 document.getElementById('modeArenaBtn').addEventListener('click', () => { initAudio(); playSfx('click'); startFusionFlow('arena'); });
 document.getElementById('modeBallBtn').addEventListener('click', () => { initAudio(); playSfx('click'); startFusionFlow('ball'); });
 document.getElementById('modeSurvivalBtn').addEventListener('click', () => { initAudio(); playSfx('click'); startFusionFlow('survival'); });
+document.getElementById('modeHillBtn').addEventListener('click', () => { initAudio(); playSfx('click'); startFusionFlow('hill'); });
+document.getElementById('modeWavesBtn').addEventListener('click', () => { initAudio(); playSfx('click'); startFusionFlow('waves'); });
 
 document.getElementById('enterArenaBtn').addEventListener('click', () => {
   initAudio(); playSfx('click');
@@ -2031,10 +2049,11 @@ function renderTrain() {
   document.getElementById('trainHours').textContent = s.hours;
   const box = document.getElementById('trainBody'); box.innerHTML = '';
   document.getElementById('trainTabT').classList.toggle('on', trainTab === 'train'); document.getElementById('trainTabA').classList.toggle('on', trainTab === 'ach'); document.getElementById('trainTabD').classList.toggle('on', trainTab === 'daily');
-  { const dc = dailyClaimables(s); document.getElementById('trainTabD').textContent = '📅 Diarias' + (dc ? ` (${dc})` : ''); }
+  { const dc = dailyClaimables(s) - passClaimables(s); document.getElementById('trainTabD').textContent = '📅 Diarias' + (dc ? ` (${dc})` : ''); const pc = passClaimables(s); document.getElementById('trainTabP').textContent = '🎖 Pase' + (pc ? ` (${pc})` : ''); document.getElementById('trainTabP').classList.toggle('on', trainTab === 'pass'); }
   const claimable = ACH_DEFS.filter(a => !s.ach[a.id] && a.cur(s) >= a.goal).length;
   document.getElementById('trainTabA').textContent = '🏅 Logros' + (claimable ? ` (${claimable})` : '');
-  if (trainTab === 'daily') { renderDaily(box, s); }
+  if (trainTab === 'pass') { renderPass(box, s); }
+  else if (trainTab === 'daily') { renderDaily(box, s); }
   else if (trainTab === 'train') {
     ['min', 'pct', 'ext'].forEach(g => {
       const h = document.createElement('div'); h.className = 'tr-group'; h.innerHTML = `<b>${TRAIN_GROUPS[g][0]}</b><span>${TRAIN_GROUPS[g][1]}</span>`; box.appendChild(h);
@@ -2068,7 +2087,7 @@ function renderTrain() {
 // MISIONES DIARIAS + RACHA DE ENTRADA + AJUSTES
 // =====================================================================
 const SETTINGS_KEY = 'heroicGuardiansSettings';
-const DEFAULT_SETTINGS = { music: 100, sfx: 100, vibrate: true, touch: 100, cardColor: '#ff7a1a', useCardColor: false };
+const DEFAULT_SETTINGS = { music: 100, sfx: 100, vibrate: true, touch: 100, cardColor: '#ff7a1a', useCardColor: false, difficulty: 'normal' };
 let settings = Object.assign({}, DEFAULT_SETTINGS, (() => { try { return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}; } catch (e) { return {}; } })());
 function saveSettings() { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (e) {} markLocalChange(); }
 function applySettings() {
@@ -2109,7 +2128,7 @@ function dailyClaimables(st) {
   st.daily.missions.forEach(m => { const d = DAILY_POOL.find(x => x.id === m.id); if (!m.c && m.p >= d.goal) n++; });
   if (!st.login.claimed) n++;
   if (!st.daily.bonus && st.daily.missions.every(m => m.c)) n++;
-  return n;
+  return n + passClaimables(st);
 }
 function applyDailyProgress(st, summary) {
   ensureDaily(st);
@@ -2145,6 +2164,59 @@ function renderDaily(box, s) {
   else if (all) { bb2.textContent = 'Cobrar'; bb2.classList.add('claim'); bb2.addEventListener('click', () => { const t = trainState(); ensureDaily(t); if (t.daily.bonus) return; t.daily.bonus = true; t.hours += 10; t.fragments = (t.fragments || 0) + 100; saveStats(t); playSfx('victory'); renderTrain(); renderStatsLine(); }); }
   else { bb2.textContent = '🔒'; bb2.disabled = true; bb2.classList.add('off'); }
   bc.appendChild(bb2); box.appendChild(bc);
+}
+
+// =====================================================================
+// PASE DE TEMPORADA (30 niveles, se renueva cada mes)
+// =====================================================================
+const PASS_MAX = 30;
+function passSeason() { return new Date().toLocaleDateString('sv').slice(0, 7); }
+function passDaysLeft() { const d = new Date(), end = new Date(d.getFullYear(), d.getMonth() + 1, 1); return Math.max(1, Math.ceil((end - d) / 86400000)); }
+function passXpFor(l) { return 90 + l * 10; }
+function passCum(l) { let t = 0; for (let i = 1; i <= l; i++) t += passXpFor(i); return t; }
+function passLevel(xp) { let l = 0; while (l < PASS_MAX && xp >= passCum(l + 1)) l++; return l; }
+function ensurePass(st) { const se = passSeason(); if (!st.pass || st.pass.season !== se) st.pass = { season: se, xp: 0, claimed: {} }; return st.pass; }
+let _passRewards = null, _passRewardsSeason = '';
+function passRewards() {
+  if (_passRewards && _passRewardsSeason === passSeason()) return _passRewards;
+  const sp = { 3: 'cbg_cielo', 6: 'aura', 9: 'trail', 12: 'cbg_noche', 15: 'pet', 18: 'cape', 21: 'shot', 24: 'cbg_galaxia', 27: 'badge', 30: 'cbg_arcoiris' };
+  const h = seedHash(passSeason()), arr = [null];
+  for (let l = 1; l <= PASS_MAX; l++) {
+    if (sp[l]) { let id = sp[l]; if (SHOP_ITEMS[id]) { const items = SHOP_ITEMS[id]; id = items[(h + l) % items.length].id; } arr.push({ item: id }); }
+    else arr.push({ frag: 40 + l * 6, hours: l % 5 === 0 ? 3 : (l % 2 ? 0 : 1) });
+  }
+  _passRewards = arr; _passRewardsSeason = passSeason(); return arr;
+}
+function passClaimables(st) { const P = ensurePass(st), lv = passLevel(P.xp); let n = 0; for (let l = 1; l <= lv; l++) if (!P.claimed[l]) n++; return n; }
+function claimPass(l, st) {
+  const P = ensurePass(st); if (P.claimed[l] || passLevel(P.xp) < l) return false;
+  P.claimed[l] = true; const r = passRewards()[l];
+  if (r.item) { const it = findShopItem(r.item), sh = loadShop(); sh.owned = sh.owned || []; if (sh.owned.includes(it.id)) st.fragments += Math.floor(it.price / 2); else { sh.owned.push(it.id); saveShop(sh); mergeOwnedIntoPalettes(); } }
+  else { st.fragments += r.frag; st.hours += r.hours; }
+  return true;
+}
+function passRewardText(l) {
+  const r = passRewards()[l];
+  if (r.item) { const it = findShopItem(r.item); const owned = (loadShop().owned || []).includes(it.id); return `🎁 <b>${it.label}</b>${owned ? ' (ya lo tienes: te damos 🔶 ' + Math.floor(it.price / 2) + ')' : ''}`; }
+  return `🔶 ${r.frag}${r.hours ? ' · ⏱ ' + r.hours : ''}`;
+}
+function renderPass(box, s) {
+  const P = ensurePass(s), lv = passLevel(P.xp), nxt = lv < PASS_MAX ? passCum(lv + 1) : P.xp, base = passCum(lv);
+  const head = document.createElement('div'); head.className = 'tr-card';
+  head.innerHTML = `<div class="tr-ico">🎖</div><div class="tr-main"><div class="tr-name">Pase de temporada <em>Nivel ${lv}/${PASS_MAX}</em></div><div class="tr-bar"><i style="width:${lv >= PASS_MAX ? 100 : (P.xp - base) / (nxt - base) * 100}%"></i></div><div class="tr-next">${lv >= PASS_MAX ? '¡Pase completado!' : `${P.xp - base} / ${nxt - base} XP para el nivel ${lv + 1}`} · Termina en ${passDaysLeft()} días · Ganas XP jugando (más si ganas, eliminas rivales o subes la dificultad)</div></div>`;
+  const n = passClaimables(s), all = document.createElement('button'); all.className = 'tr-btn' + (n ? ' claim' : ' off'); all.textContent = n ? `Cobrar todo (${n})` : '🔒'; all.disabled = !n;
+  all.addEventListener('click', () => { const t = trainState(); for (let l = 1; l <= PASS_MAX; l++) claimPass(l, t); saveStats(t); playSfx('victory'); renderTrain(); renderStatsLine(); });
+  head.appendChild(all); box.appendChild(head);
+  for (let l = 1; l <= PASS_MAX; l++) {
+    const reached = lv >= l, got = !!P.claimed[l], special = !!passRewards()[l].item;
+    const c = document.createElement('div'); c.className = 'tr-card' + (got ? ' done' : '');
+    c.innerHTML = `<div class="tr-ico">${special ? '🎁' : l}</div><div class="tr-main"><div class="tr-name">Nivel ${l}</div><div class="tr-desc">${passRewardText(l)}</div></div>`;
+    const b = document.createElement('button'); b.className = 'tr-btn';
+    if (got) { b.textContent = 'Cobrado ✓'; b.disabled = true; b.classList.add('max'); }
+    else if (reached) { b.textContent = 'Cobrar'; b.classList.add('claim'); b.addEventListener('click', () => { const t = trainState(); if (claimPass(l, t)) { saveStats(t); playSfx('victory'); renderTrain(); renderStatsLine(); } }); }
+    else { b.textContent = '🔒'; b.disabled = true; b.classList.add('off'); }
+    c.appendChild(b); box.appendChild(c);
+  }
 }
 
 // ---------- PANTALLA DE TIENDA ----------
@@ -2261,6 +2333,7 @@ document.getElementById('trainBackBtn').addEventListener('click', () => { playSf
 document.getElementById('trainTabD').addEventListener('click', () => { trainTab = 'daily'; renderTrain(); });
 document.getElementById('trainTabT').addEventListener('click', () => { trainTab = 'train'; renderTrain(); });
 document.getElementById('trainTabA').addEventListener('click', () => { trainTab = 'ach'; renderTrain(); });
+document.getElementById('trainTabP').addEventListener('click', () => { trainTab = 'pass'; renderTrain(); });
 document.getElementById('shopBtn').addEventListener('click', () => {
   initAudio(); playSfx('click');
   renderShop();
@@ -2329,7 +2402,7 @@ function buildTeams() {
     t1 = { title: 'TUS TRES GUARDIANES', cards: f.picks.map((p, i) => { const fl = archFlags(p.arch), look = guardianLook(p); return { name: p.name, slug: p.slug, col: ARCH_COLORS[p.arch], tag: 'Guardián ' + (i + 1), bg: playerCardBg(p.arch), look, rows: tiStat('🧠 Intelig.', fl.int ? 92 : 28, fl.int ? 'Alta' : 'Baja') + tiStat('💪 Fuerza', fl.fue ? 92 : 28, fl.fue ? 'Alta' : 'Baja') + tiStat('🏃 Veloc.', fl.vel ? 92 : 28, fl.vel ? 'Alta' : 'Baja') }; }),
       foot: `Fusión ${f.rarity} · ❤ ${f.vida} · ⚔ ${f.dmg} · ⚡ ${f.moveSpeed} · 🎯 ${f.rangeLabel} · ${f.weapon.name}` };
     const rivals = bots.slice().sort((a, b) => b.fusion.dmg - a.fusion.dmg).slice(0, 3);
-    t2 = { title: gameMode === 'survival' ? 'RIVALES MÁS PELIGROSOS' : 'EQUIPO RIVAL', cards: rivals.map(b => botCard(b, 'Rival')), foot: bots.length > 3 ? `…y ${bots.length - 3} rivales más en el mapa` : '' };
+    t2 = { title: gameMode === 'survival' ? 'RIVALES MÁS PELIGROSOS' : gameMode === 'hill' ? 'RIVALES DE LA COLINA' : gameMode === 'waves' ? 'PRIMERA OLEADA' : 'EQUIPO RIVAL', cards: rivals.map(b => botCard(b, 'Rival')), foot: bots.length > 3 ? `…y ${bots.length - 3} rivales más en el mapa` : '' };
   }
   const P1 = ['slash', 'guard', 'strike'], P2 = ['roar', 'strike', 'slash'];
   t1.cards.forEach((c, i) => c.pose = P1[i % 3]); t2.cards.forEach((c, i) => c.pose = P2[i % 3]);
@@ -2503,7 +2576,7 @@ function findNearestTarget(from) {
 // Objetivo de un bot: en Arena siempre el jugador; en Supervivencia, el ser vivo más cercano
 // (jugador u otro bot), así que también se pelean entre ellos.
 function findBotTarget(bot) {
-  if (gameMode === 'arena') return player.alive ? player : null;
+  if (arenaLike()) return player.alive ? player : null;
   let best = null, bestDist = Infinity;
   if (player.alive) { best = player; bestDist = dist(bot, player); }
   bots.forEach(b => {
@@ -3150,24 +3223,31 @@ const BOT_TUNING = {
   orbs: true                                              // ¿van a por los orbes?
 };
 const tune = ([a, b]) => rand(a, b);
+const DIFFS = {
+  facil:   { label: '😊 Fácil',   hp: 0.7, dmg: 0.7, speed: 0.92, dodge: 0.5, lead: 0.5, flee: 1.3, rate: 0.9, reward: 0.7 },
+  normal:  { label: '⚔️ Normal',  hp: 1, dmg: 1, speed: 1, dodge: 1, lead: 1, flee: 1, rate: 1, reward: 1 },
+  dificil: { label: '🔥 Difícil', hp: 1.55, dmg: 1.3, speed: 1.08, dodge: 1.7, lead: 1.5, flee: 0.7, rate: 1.15, reward: 1.6 }
+};
+function curDiff(k) { return DIFFS[k || settings.difficulty] || DIFFS.normal; }
 
-function spawnBot() {
+function spawnBot(diffKey) {
+  const D = curDiff(diffKey);
   const fusion = generateFusion();
   const outfitColor = OUTFIT_COLORS[Math.floor(Math.random() * OUTFIT_COLORS.length)];
   // Los bots usan la variedad de velocidad/daño/arma/alcance de su Fusión,
   // pero con vida propia mucho más baja: la fórmula del jugador está pensada
   // para un único protagonista, no para varios rivales que hay que abatir uno a uno.
-  const botVida = Math.round(rand(50, 120));
+  const botVida = Math.round(rand(50, 120) * D.hp);
   // IA: los de arma cuerpo a cuerpo son siempre agresivos (su arma les obliga a estar pegados);
   // el resto se reparte al azar entre agresivo (carga sin parar) y cauteloso (mantiene las distancias).
   const aiType = fusion.weapon.engine === 'melee' ? 'agresivo' : (Math.random() < 0.5 ? 'agresivo' : 'cauteloso');
   const agresivo = aiType === 'agresivo';
   return {
     x: rand(80, WORLD_W - 80), y: rand(80, WORLD_H - 80), r: 20,
-    speed: fusion.moveSpeed,
+    speed: fusion.moveSpeed * D.speed, baseSpeed: fusion.moveSpeed * D.speed,
     hp: botVida, maxHp: botVida, angle: 0,
-    shootCooldown: rand(0, 1), shootRate: 1 / fusion.reload,
-    baseDamage: fusion.dmg, precision: fusion.precision / 100, projRange: fusion.range,
+    shootCooldown: rand(0, 1), shootRate: D.rate / fusion.reload,
+    baseDamage: Math.round(fusion.dmg * D.dmg), precision: fusion.precision / 100, projRange: fusion.range,
     weaponDef: fusion.weapon, fusion, aiType,
     alive: true, respawnTimer: 0, color: outfitColor, traits: randomLook(outfitColor),
     walkPhase: rand(0, 6), moving: false, attackAnim: 0,
@@ -3180,10 +3260,10 @@ function spawnBot() {
     coverSpot: null, coverTimer: 0, hideTime: 0, stubbornTimer: 0,
     flankSide: Math.random() < 0.5 ? 1 : -1, flankTimer: 0,
     // personalidad: los agresivos aguantan más herido y esquivan peor; los cautelosos huyen antes
-    fleeAt: tune(BOT_TUNING.fleeAt[aiType]),
-    dodgeSkill: tune(BOT_TUNING.dodge[aiType]),
+    fleeAt: tune(BOT_TUNING.fleeAt[aiType]) * D.flee,
+    dodgeSkill: Math.min(0.85, tune(BOT_TUNING.dodge[aiType]) * D.dodge),
     orbGreed: agresivo ? rand(0.2, 0.55) : rand(0.5, 0.9),
-    aimLead: tune(BOT_TUNING.lead)
+    aimLead: Math.min(1, tune(BOT_TUNING.lead) * D.lead)
   };
 }
 let bots = [spawnBot(), spawnBot()];
@@ -3361,7 +3441,7 @@ function shoot(shooter, angle, isBot) {
         const angTo = angleTo(shooter, b);
         const diff = Math.abs(((angTo - finalAngle + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
         if (diff < arcRad / 2) {
-          if (b === player) damagePlayer(damage); else damageBot(b, damage);
+          if (b === player) damagePlayer(damage); else { dmgSrcPlayer = shooter === player; damageBot(b, damage); }
           if (shooter === player) player.superCharge = Math.min(player.superMax, player.superCharge + 1);
         }
       }
@@ -3442,7 +3522,7 @@ function tryActivateSuper() {
     const radius = s.radius || 110;
     playerFoes().forEach(b => {
       if (!b.alive || dist(player, b) >= radius) return;
-      damageBot(b, s.dmg || 20);
+      dmgSrcPlayer = true; damageBot(b, s.dmg || 20);
       const a = angleTo(player, b);
       b.x = clamp(b.x + Math.cos(a) * (s.knockback || 60), b.r, WORLD_W - b.r);
       b.y = clamp(b.y + Math.sin(a) * (s.knockback || 60), b.r, WORLD_H - b.r);
@@ -3499,7 +3579,7 @@ function initPowerups() {
   for (let i = 0; i < powerupCfg.initial; i++) spawnPowerup();
 }
 
-function addFloatingText(x, y, text, color) { floatingTexts.push({ x, y, text, color, life: 1.1 }); }
+function addFloatingText(x, y, text, color, size) { floatingTexts.push({ x, y, text, color, life: 1.1, size: size || 14 }); }
 
 function collectPowerup(pu) {
   const t = pu.type;
@@ -3625,9 +3705,9 @@ function drawFloatingTexts() {
   floatingTexts.forEach(f => {
     ctx.save();
     ctx.globalAlpha = Math.min(1, f.life * 1.5);
-    ctx.font = 'bold 14px -apple-system, "Segoe UI", Roboto, sans-serif';
+    ctx.font = `800 ${Math.round(f.size * (1 + Math.max(0, f.life - 0.9) * 3))}px -apple-system, "Segoe UI", Roboto, sans-serif`;
     ctx.textAlign = 'center';
-    ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,0.75)';
+    ctx.lineWidth = 4; ctx.lineJoin = 'round'; ctx.strokeStyle = 'rgba(0,0,0,0.8)';
     ctx.strokeText(f.text, f.x, f.y);
     ctx.fillStyle = f.color; ctx.fillText(f.text, f.x, f.y);
     ctx.restore();
@@ -3681,7 +3761,7 @@ function chooseBotTarget(bot) {
     foesOf(bot).forEach(e => { let sc = dist(bot, e) * (0.65 + 0.35 * (e.hp / e.maxHp)); if (e === bot.target) sc *= 0.8; if (sc < bs) { bs = sc; best = e; } });
     return best;
   }
-  if (gameMode === 'arena') return player.alive ? player : null;
+  if (arenaLike()) return player.alive ? player : null;
   let best = null, bestScore = Infinity;
   const consider = e => {
     let score = dist(bot, e) * (0.65 + 0.35 * (e.hp / e.maxHp));
@@ -4261,6 +4341,9 @@ function update(dt) {
     updateHUD(); return;
   }
   if (gameMode === 'tutorial') updateTutorial(dt);
+  applyHazards(dt);
+  if (gameMode === 'hill') updateHill(dt);
+  if (gameMode === 'waves') updateWaves(dt);
   updatePowerups(dt);
   if (player.alive && player.regen && player.hp < player.maxHp) player.hp = Math.min(player.maxHp, player.hp + player.maxHp * player.regen * dt);
   if (!player.superActive) {
@@ -4319,7 +4402,7 @@ function update(dt) {
         if (!b.alive) return;
         if (dist(player, b) < radius) {
           b._superHitCooldown = b._superHitCooldown || 0;
-          if (b._superHitCooldown <= 0) { damageBot(b, s.tickDmg || 10); b._superHitCooldown = 0.2; }
+          if (b._superHitCooldown <= 0) { dmgSrcPlayer = true; damageBot(b, s.tickDmg || 10); b._superHitCooldown = 0.2; }
         }
       });
       bots.forEach(b => { if (b._superHitCooldown > 0) b._superHitCooldown -= dt; });
@@ -4330,7 +4413,7 @@ function update(dt) {
       if (gameMode === 'ball' && dist(player, ball) < player.r + ball.r + 8) kickBall(player.dashAngle, 700);
       playerFoes().forEach(b => {
         if (!b.alive || player.dashHitSet.has(b)) return;
-        if (dist(player, b) < player.r + b.r) { damageBot(b, s.dmg || 18); player.dashHitSet.add(b); }
+        if (dist(player, b) < player.r + b.r) { dmgSrcPlayer = true; damageBot(b, s.dmg || 18); player.dashHitSet.add(b); }
       });
     }
     // escudo / curación / furia / onda no necesitan lógica continua: ya aplicaron su efecto al activarse
@@ -4350,7 +4433,7 @@ function update(dt) {
   bots.forEach(bot => {
     if (!bot.alive) {
       if (gameMode === 'ball') { bot.respawnTimer -= dt; if (bot.respawnTimer <= 0) reviveEntity(bot); return; }
-      if (gameMode === 'arena') {
+      if (gameMode === 'arena' || gameMode === 'hill') {
         bot.respawnTimer -= dt;
         if (bot.respawnTimer <= 0) Object.assign(bot, spawnBot());
       } else if (gameMode === 'tutorial' && bot.isDummy && tutorialStepIndex < TUTORIAL_STEPS.length - 1) {
@@ -4361,6 +4444,7 @@ function update(dt) {
       return;
     }
     trackVelocity(bot, dt);
+    if (gameMode === 'hill' && hillBotTravel(bot, dt)) return;
     updateBotBrain(bot, dt);
   });
 
@@ -4383,7 +4467,7 @@ function update(dt) {
       if (p.hitSet.has(e)) return;
       if (e === player && player.superActive) return; // invulnerable durante su propio super
       if (dist(p, e) < e.r) {
-        if (e === player) damagePlayer(projDamage(p)); else damageBot(e, projDamage(p));
+        if (e === player) damagePlayer(projDamage(p)); else { dmgSrcPlayer = p.owner === 'player'; damageBot(e, projDamage(p)); }
         if (e === player || p.ownerRef === player) playSfx('hit');
         if (p.ownerRef === player) player.superCharge = Math.min(player.superMax, player.superCharge + 1);
         p.hitSet.add(e);
@@ -4414,7 +4498,7 @@ function update(dt) {
       const aoeCandidates = [player, ...bots].filter(e => e !== p.ownerRef && e.alive && (gameMode !== 'ball' || teamOf(e) !== teamOf(p.ownerRef)));
       aoeCandidates.forEach(e => {
         if (dist(p, e) < (p.aoeRadius || 55)) {
-          if (e === player) damagePlayer(Math.round(p.damage * 0.7)); else damageBot(e, Math.round(p.damage * 0.7));
+          if (e === player) damagePlayer(Math.round(p.damage * 0.7)); else { dmgSrcPlayer = p.owner === 'player'; damageBot(e, Math.round(p.damage * 0.7)); }
         }
       });
       remove = true;
@@ -4433,12 +4517,21 @@ function update(dt) {
   updateHUD();
 }
 
+let dmgSrcPlayer = true, hitStop = 0, slowT = 0, slowScale = 1, zoomPunch = 0, killChain = 0, lastKillT = 0;
 function damageBot(bot, dmg) {
   if (bot.buffs && bot.buffs.escudo > 0) dmg = Math.round(dmg * 0.4); // orbe de escudo: 60% menos de daño
   bot.hp -= dmg;
-  bot.hitFlash = 0.12; addFloatingText(bot.x + rand(-8, 8), bot.y - bot.r - 22, String(dmg), '#ffe082');
+  bot.hitFlash = 0.12;
+  { const big = dmg >= 40, mid = dmg >= 25; addFloatingText(bot.x + rand(-8, 8), bot.y - bot.r - 22, String(dmg), big ? '#ff9100' : mid ? '#ffd54f' : '#ffe082', 14 + Math.min(16, dmg * 0.4)); }
+  if (dmgSrcPlayer && !bot.isDummy) { hitStop = Math.max(hitStop, bot.hp <= 0 ? 0.09 : 0.04); fxBurst(bot.x, bot.y, '#fff6c8', 7, 210, 3, 0.25); fxRing(bot.x, bot.y, '#fff', 22, 0.2, 3); fxShake(bot.hp <= 0 ? 6 : 1.8); }
   if (bot.hp <= 0 && bot.alive) {
     fxBurst(bot.x, bot.y, bot.color || '#fff', 18, 230, 4.5, 0.6); fxRing(bot.x, bot.y, '#fff', 46, 0.35, 4);
+    if (dmgSrcPlayer && !bot.isDummy) {
+      slowT = 0.55; slowScale = 0.3; zoomPunch = 1;
+      const nw = performance.now(); killChain = (nw - lastKillT < 3500) ? killChain + 1 : 1; lastKillT = nw;
+      const lab = ['¡KO!', '¡DOBLE KO!', '¡TRIPLE KO!', '¡MÚLTIPLE!'][Math.min(3, killChain - 1)];
+      addFloatingText(bot.x, bot.y - 44, lab, killChain > 1 ? '#ff5252' : '#fff', 24 + killChain * 3);
+    }
     bot.alive = false; bot.respawnTimer = bot.isDummy ? 1.2 : 2.2;
     playSfx('botDeath');
     if (gameMode === 'arena') {
@@ -4446,6 +4539,8 @@ function damageBot(bot, dmg) {
       document.getElementById('kills').textContent = kills;
       flashMessage('¡Rival derrotado!', 700);
       if (kills >= TARGET_KILLS) endMatch(true);
+    } else if (gameMode === 'hill' || gameMode === 'waves') {
+      kills++; if (bot.isBoss) flashMessage('¡JEFE DERROTADO!', 1400);
     } else if (gameMode === 'ball') {
       if (bot.team !== 'A') addFloatingText(bot.x, bot.y - 30, 'KO', '#ff8a80');
     } else if (gameMode === 'survival') {
@@ -4457,31 +4552,31 @@ function damageBot(bot, dmg) {
     }
   }
 }
-function damagePlayer(dmg) { vib(25);
+function damagePlayer(dmg, quiet) { if (!quiet) vib(25);
   if (buffs.escudo > 0) dmg = Math.round(dmg * 0.4); // orbe de escudo: 60% menos de daño
   if (player.superActive && player.superEngine === 'escudo') {
     dmg = Math.round(dmg * (1 - (player.shieldReduction || 0.7)));
   }
   player.hp -= dmg;
-  player.hitFlash = 0.12; addFloatingText(player.x + rand(-8, 8), player.y - player.r - 26, String(dmg), '#ff8a80'); fxShake(4);
-  triggerFlash('#ff0000');
-  playSfx('damage');
+  player.hitFlash = 0.12; addFloatingText(player.x + rand(-8, 8), player.y - player.r - 26, String(dmg), '#ff8a80', 15 + Math.min(14, dmg * 0.4)); if (!quiet) { fxShake(3 + Math.min(7, dmg * 0.12)); hitStop = Math.max(hitStop, 0.05); }
+  if (!quiet) { triggerFlash('#ff0000'); playSfx('damage'); }
   if (player.hp <= 0 && player.alive) {
-    player.alive = false; fxBurst(player.x, player.y, '#8bc34a', 22, 250, 5, 0.7); fxRing(player.x, player.y, '#fff', 60, 0.4, 5); fxShake(9);
+    player.alive = false; fxBurst(player.x, player.y, '#8bc34a', 22, 250, 5, 0.7); fxRing(player.x, player.y, '#fff', 60, 0.4, 5); fxShake(10); slowT = 0.8; slowScale = 0.25; zoomPunch = 1.2;
     resetBuffs(); // al caer se pierden los efectos de los orbes
     if (gameMode === 'ball') {
       player.respawnTimer = 3;
       flashMessage('Has caído… vuelves en 3 s', 1600);
-    } else if (gameMode === 'arena') {
+    } else if (arenaLike()) {
       deathsThisMatch++;
-      const livesLeft = MAX_LIVES - deathsThisMatch;
+      const maxL = gameMode === 'waves' ? 3 : gameMode === 'hill' ? 99 : MAX_LIVES;
+      const livesLeft = maxL - deathsThisMatch;
       const livesEl = document.getElementById('livesLeft');
       if (livesEl) livesEl.textContent = Math.max(0, livesLeft);
-      if (deathsThisMatch >= MAX_LIVES) {
+      if (deathsThisMatch >= maxL) {
         flashMessage('Sin vidas...', 1500);
         setTimeout(() => endMatch(false), 1500);
       } else {
-        flashMessage(`Has caído... reapareciendo (${livesLeft} ${livesLeft === 1 ? 'vida' : 'vidas'})`, 1500);
+        flashMessage(gameMode === 'hill' ? 'Has caído... reapareciendo' : `Has caído... reapareciendo (${livesLeft} ${livesLeft === 1 ? 'vida' : 'vidas'})`, 1500);
         setTimeout(() => { player.hp = player.maxHp; player.x = W / 2; player.y = H / 2; player.alive = true; }, 1500);
       }
     } else {
@@ -4579,10 +4674,11 @@ function buildTerrain(mode) {
   const seed = mode === 'ball' ? 4242 : (Math.floor(Math.random() * 1e6) + 1);
   const R = mulberry32(seed), rr = (a, b) => a + R() * (b - a), area = w * h;
   const ball = mode === 'ball';
+  const BIO = (!ball && BIOMES[biome]) || {};
   // --- hierba base y manchas de color ---
-  g.fillStyle = ball ? '#3c6a38' : '#3d6b3a'; g.fillRect(0, 0, w, h);
+  g.fillStyle = ball ? '#3c6a38' : (BIO.base || '#3d6b3a'); g.fillRect(0, 0, w, h);
   for (let i = 0; i < area / 6500; i++) {
-    const x = rr(0, w), y = rr(0, h), rad = rr(50, 150), light = R() < 0.5, col = light ? 'rgba(135,185,85,' : 'rgba(14,52,28,';
+    const x = rr(0, w), y = rr(0, h), rad = rr(50, 150), light = R() < 0.5, col = light ? (BIO.blobL || 'rgba(135,185,85,') : (BIO.blobD || 'rgba(14,52,28,');
     const gr = g.createRadialGradient(x, y, 0, x, y, rad); gr.addColorStop(0, col + (ball ? '0.12)' : '0.24)')); gr.addColorStop(1, col + '0)');
     g.fillStyle = gr; g.fillRect(x - rad, y - rad, rad * 2, rad * 2);
   }
@@ -4595,7 +4691,7 @@ function buildTerrain(mode) {
     const path = (pts, wid) => {
       g.lineCap = 'round'; g.lineJoin = 'round';
       const draw = (col, lw) => { g.strokeStyle = col; g.lineWidth = lw; g.beginPath(); g.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length - 1; i += 2) g.quadraticCurveTo(pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1]); g.stroke(); };
-      draw('rgba(70,52,28,0.28)', wid + 18); draw('rgba(142,110,66,0.95)', wid); draw('rgba(172,140,92,0.6)', wid * 0.55);
+      { const pc = BIO.path || ['rgba(70,52,28,0.28)', 'rgba(142,110,66,0.95)', 'rgba(172,140,92,0.6)']; draw(pc[0], wid + 18); draw(pc[1], wid); draw(pc[2], wid * 0.55); }
       for (let k = 0; k < 120; k++) { /* piedrecitas y huellas en el camino */ }
     };
     const paths = mode === 'survival'
@@ -4607,7 +4703,7 @@ function buildTerrain(mode) {
     g.fillStyle = cg; g.fillRect(0, 0, w, h);
   }
   // --- matas de hierba ---
-  const blades = ['#2a5a2c', '#2f6a32', '#4f8f45', '#6aa755', '#244f26'];
+  const blades = BIO.blades || ['#2a5a2c', '#2f6a32', '#4f8f45', '#6aa755', '#244f26'];
   g.lineCap = 'round'; g.lineWidth = 1.3;
   for (let i = 0; i < area / (ball ? 260 : 150); i++) {
     const x = rr(0, w), y = rr(0, h); g.strokeStyle = blades[Math.floor(R() * blades.length)]; g.globalAlpha = rr(0.35, 0.8);
@@ -4616,7 +4712,7 @@ function buildTerrain(mode) {
   g.globalAlpha = 1;
   if (!ball) {
     // --- flores en grupos ---
-    const fcols = ['#fff7d6', '#ffd54f', '#f48fb1', '#ce93d8', '#ffffff', '#ff8a65'];
+    const fcols = BIO.flowers || ['#fff7d6', '#ffd54f', '#f48fb1', '#ce93d8', '#ffffff', '#ff8a65'];
     for (let i = 0; i < area / 9000; i++) {
       const cx = rr(30, w - 30), cy = rr(30, h - 30), col = fcols[Math.floor(R() * fcols.length)], n = 5 + Math.floor(R() * 7);
       for (let k = 0; k < n; k++) { const x = cx + rr(-16, 16), y = cy + rr(-12, 12); g.fillStyle = col; g.beginPath(); g.arc(x, y, rr(1.4, 2.4), 0, Math.PI * 2); g.fill(); g.fillStyle = '#ffeb3b'; g.beginPath(); g.arc(x, y, 0.7, 0, Math.PI * 2); g.fill(); }
@@ -4625,8 +4721,9 @@ function buildTerrain(mode) {
     for (let i = 0; i < area / 7000; i++) { const x = rr(10, w - 10), y = rr(10, h - 10), s = rr(1.5, 3.8); g.fillStyle = 'rgba(0,0,0,0.25)'; g.beginPath(); g.ellipse(x + 1, y + 1.5, s, s * 0.6, 0, 0, Math.PI * 2); g.fill(); g.fillStyle = R() < 0.5 ? '#a9a9a2' : '#8c8b84'; g.beginPath(); g.ellipse(x, y, s, s * 0.7, 0, 0, Math.PI * 2); g.fill(); }
   }
   // --- sombras de árboles y rocas (pegadas al suelo) + sprites ---
+  drawHazardsStatic(g);
   obstacles.forEach(o => {
-    o.sprite = o.type === 'tree' ? makeTreeSprite(o, R) : makeRockSprite(o, R);
+    o.sprite = biomeObstacleSprite(o, R) || (o.type === 'tree' ? makeTreeSprite(o, R) : makeRockSprite(o, R));
     g.fillStyle = 'rgba(0,0,0,0.28)'; g.beginPath();
     if (o.type === 'tree') g.ellipse(o.x + o.r * 0.45, o.y + o.r * 0.62, o.r * 1.12, o.r * 0.75, 0, 0, Math.PI * 2);
     else g.ellipse(o.x + o.r * 0.3, o.y + o.r * 0.55, o.r * 1.1, o.r * 0.6, 0, 0, Math.PI * 2);
@@ -4676,6 +4773,7 @@ function drawTerrainAndObstacles() {
   const m = 14, sx = Math.max(0, Math.floor(camera.x - m)), sy = Math.max(0, Math.floor(camera.y - m));
   const sw = Math.min(terrain.canvas.width - sx, W + 2 * m), sh = Math.min(terrain.canvas.height - sy, H + 2 * m);
   ctx.drawImage(terrain.canvas, sx, sy, sw, sh, sx, sy, sw, sh);
+  drawHazardsLive();
   obstacles.forEach(o => {
     if (o.x < camera.x - 70 || o.x > camera.x + W + 70 || o.y < camera.y - 70 || o.y > camera.y + H + 70) return;
     if (o.sprite) ctx.drawImage(o.sprite, o.x - o.sprite.width / 2, o.y - o.sprite.height / 2 + (o.type === 'tree' ? 2 : 0));
@@ -4921,6 +5019,7 @@ function drawSuperEffect(p) {
 }
 
 function drawHealthBar(entity, w = 44) {
+  if (entity.isBoss) w = 90;
   const x = entity.x - w / 2, y = entity.y - entity.r - 16;
   ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(x, y, w, 6);
   ctx.fillStyle = entity === player ? '#8bc34a' : (gameMode === 'ball' && entity.team === 'A' ? '#4fa8e0' : '#ff5252');
@@ -5083,8 +5182,10 @@ function drawProjectile(p) {
 
 function draw() {
   ctx.save();
+  if (zoomPunch > 0) { const z = 1 + zoomPunch * 0.045; ctx.translate(W / 2, H / 2); ctx.scale(z, z); ctx.translate(-W / 2, -H / 2); }
   ctx.translate(-camera.x + (Math.random() - 0.5) * shakeAmt * 2, -camera.y + (Math.random() - 0.5) * shakeAmt * 2);
   drawArena();
+  drawModeExtras();
   drawPowerups();
   drawFx(true);
   [player, ...bots].forEach(e => { if (e.alive) { ctx.fillStyle = 'rgba(0,0,0,0.26)'; ctx.beginPath(); ctx.ellipse(e.x, e.y + e.r * 0.95, e.r * 0.95, e.r * 0.38, 0, 0, Math.PI * 2); ctx.fill(); } });
@@ -5111,6 +5212,152 @@ function draw() {
   drawJoystick(moveTouch, '#ffffff');
 }
 
+// =====================================================================
+// VARIEDAD: BIOMAS CON PELIGROS + MODOS "REY DE LA COLINA" Y "OLEADAS"
+// =====================================================================
+const BIOMES = {
+  pradera:  { name: 'Pradera' },
+  nieve:    { name: 'Nieve', base: '#cfe0ee', blobL: 'rgba(255,255,255,', blobD: 'rgba(110,150,190,', blades: ['#a9c4d8', '#e8f2fa', '#8fb0c8', '#c5d9e8', '#7fa0bc'], path: ['rgba(90,110,140,0.25)', 'rgba(168,184,204,0.95)', 'rgba(205,218,232,0.6)'], flowers: ['#ffffff', '#bfe6ff', '#e8f6ff'] },
+  desierto: { name: 'Desierto', base: '#d9b46a', blobL: 'rgba(240,210,140,', blobD: 'rgba(150,100,40,', blades: ['#b58c45', '#c9a05a', '#9a7338', '#d8b772', '#8a6530'], path: ['rgba(100,70,30,0.25)', 'rgba(176,134,70,0.95)', 'rgba(206,166,100,0.6)'], flowers: ['#e8c26a', '#f2d98a', '#c98a3a'] },
+  lava:     { name: 'Volcán', base: '#2a1612', blobL: 'rgba(255,100,30,', blobD: 'rgba(0,0,0,', blades: ['#5a2518', '#3a1710', '#7a3020', '#4a1c12', '#8a3a22'], path: ['rgba(0,0,0,0.35)', 'rgba(70,40,34,0.95)', 'rgba(100,62,50,0.6)'], flowers: ['#ff6a1a', '#ffb300', '#ff3d00'] }
+};
+let biome = 'pradera', hazards = [];
+function chooseBiome(mode) {
+  if (mode === 'ball' || mode === 'tutorial') return 'pradera';
+  return lbPick(['pradera', 'pradera', 'nieve', 'desierto', 'lava']);
+}
+function makeHazards(mode) {
+  hazards = [];
+  if (biome === 'pradera' || mode === 'ball' || mode === 'tutorial') return;
+  const n = mode === 'survival' ? 14 : 4, type = biome === 'lava' ? 'lava' : biome === 'nieve' ? 'snow' : 'sand';
+  for (let i = 0, tries = 0; i < n && tries < 200; tries++) {
+    const r = rand(46, 78), x = rand(r + 30, WORLD_W - r - 30), y = rand(r + 30, WORLD_H - r - 30);
+    if (Math.hypot(x - WORLD_W / 2, y - WORLD_H / 2) < r + 150) continue;
+    if (hazards.some(h => Math.hypot(h.x - x, h.y - y) < h.r + r + 20)) continue;
+    hazards.push({ x, y, r, type }); i++;
+  }
+}
+function drawHazardsStatic(g) {
+  hazards.forEach(h => {
+    g.save(); g.translate(h.x, h.y); g.scale(1, 0.82);
+    if (h.type === 'snow') {
+      const gr = g.createRadialGradient(0, 0, 4, 0, 0, h.r); gr.addColorStop(0, 'rgba(255,255,255,0.95)'); gr.addColorStop(0.7, 'rgba(225,238,250,0.85)'); gr.addColorStop(1, 'rgba(200,225,245,0)');
+      g.fillStyle = gr; g.beginPath(); g.arc(0, 0, h.r, 0, 7); g.fill(); g.strokeStyle = 'rgba(140,175,210,0.45)'; g.lineWidth = 2; g.beginPath(); g.arc(0, 0, h.r * 0.8, 0.2, 2.6); g.stroke();
+    } else if (h.type === 'sand') {
+      const gr = g.createRadialGradient(0, 0, 4, 0, 0, h.r); gr.addColorStop(0, 'rgba(110,70,24,0.75)'); gr.addColorStop(0.75, 'rgba(150,104,48,0.5)'); gr.addColorStop(1, 'rgba(170,125,60,0)');
+      g.fillStyle = gr; g.beginPath(); g.arc(0, 0, h.r, 0, 7); g.fill(); g.strokeStyle = 'rgba(80,50,15,0.4)'; g.lineWidth = 2; for (let k = 1; k <= 3; k++) { g.beginPath(); g.arc(0, 0, h.r * k * 0.25, k, k + 4.2); g.stroke(); }
+    } else {
+      const gr = g.createRadialGradient(0, 0, 4, 0, 0, h.r); gr.addColorStop(0, '#ffe27a'); gr.addColorStop(0.45, '#ff7a1a'); gr.addColorStop(0.85, '#7a1c08'); gr.addColorStop(1, 'rgba(30,10,6,0)');
+      g.fillStyle = gr; g.beginPath(); g.arc(0, 0, h.r, 0, 7); g.fill(); g.strokeStyle = 'rgba(20,8,6,0.8)'; g.lineWidth = 4; g.beginPath(); g.arc(0, 0, h.r * 0.93, 0, 7); g.stroke();
+    }
+    g.restore();
+  });
+}
+function drawHazardsLive() {
+  const t = performance.now() / 1000;
+  hazards.forEach(h => {
+    if (h.type !== 'lava' || h.x < camera.x - 100 || h.x > camera.x + W + 100 || h.y < camera.y - 100 || h.y > camera.y + H + 100) return;
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; const pu = 0.22 + 0.12 * Math.sin(t * 3 + h.x);
+    const gr = ctx.createRadialGradient(h.x, h.y, 4, h.x, h.y, h.r * 1.5); gr.addColorStop(0, `rgba(255,150,40,${pu + 0.15})`); gr.addColorStop(1, 'rgba(255,60,0,0)');
+    ctx.fillStyle = gr; ctx.fillRect(h.x - h.r * 1.5, h.y - h.r * 1.5, h.r * 3, h.r * 3);
+    if (Math.random() < 0.05) fxAdd({ x: h.x + rand(-h.r * 0.6, h.r * 0.6), y: h.y + rand(-h.r * 0.4, h.r * 0.4), vx: rand(-10, 10), vy: rand(-60, -30), life: 0.8, size: rand(1.5, 3), color: '#ffb347', drag: 0.97, grow: -1 });
+    ctx.restore();
+  });
+}
+function biomeObstacleSprite(o, R) {
+  if (biome === 'pradera') return null;
+  const S = Math.ceil(o.r * 3.4), c = makeCanvas(S, S), g = c.getContext('2d'), cx = S / 2, cy = S / 2 - 2, r = o.r, rr = (a, b) => a + R() * (b - a);
+  if (o.type === 'tree') {
+    if (biome === 'nieve') {
+      g.fillStyle = '#4a3420'; g.fillRect(cx - 3, cy + r * 0.55, 6, r * 0.7);
+      for (let i = 0; i < 3; i++) { const y = cy + r * 0.55 - i * r * 0.55, w = r * (1.3 - i * 0.32); g.fillStyle = i % 2 ? '#2f6a52' : '#27594a'; g.beginPath(); g.moveTo(cx, y - r * 0.9); g.lineTo(cx + w, y); g.lineTo(cx - w, y); g.closePath(); g.fill(); g.fillStyle = 'rgba(255,255,255,0.92)'; g.beginPath(); g.moveTo(cx, y - r * 0.9); g.lineTo(cx + w * 0.55, y - r * 0.38); g.quadraticCurveTo(cx, y - r * 0.2, cx - w * 0.55, y - r * 0.38); g.closePath(); g.fill(); }
+    } else if (biome === 'desierto') {
+      g.fillStyle = 'rgba(0,0,0,0.0)'; const gc = '#3f8a46', gl = '#5fb064';
+      g.fillStyle = gc; g.beginPath(); g.roundRect(cx - r * 0.3, cy - r * 1.15, r * 0.6, r * 2.1, r * 0.3); g.fill();
+      g.beginPath(); g.roundRect(cx - r * 0.95, cy - r * 0.2, r * 0.7, r * 0.3, r * 0.15); g.fill(); g.beginPath(); g.roundRect(cx - r * 0.95, cy - r * 0.85, r * 0.3, r * 0.75, r * 0.15); g.fill();
+      g.beginPath(); g.roundRect(cx + r * 0.25, cy - r * 0.5, r * 0.7, r * 0.3, r * 0.15); g.fill(); g.beginPath(); g.roundRect(cx + r * 0.65, cy - r * 1.0, r * 0.3, r * 0.6, r * 0.15); g.fill();
+      g.fillStyle = gl; g.fillRect(cx - r * 0.12, cy - r * 1.05, r * 0.1, r * 1.9); g.fillStyle = '#e8f5d0'; for (let k = 0; k < 10; k++) g.fillRect(cx + rr(-r * 0.25, r * 0.25), cy + rr(-r, r * 0.8), 1.4, 1.4);
+    } else {
+      g.strokeStyle = '#1c1210'; g.lineCap = 'round'; g.lineWidth = r * 0.34; g.beginPath(); g.moveTo(cx, cy + r * 0.95); g.lineTo(cx, cy - r * 0.2); g.stroke();
+      g.lineWidth = r * 0.18; [[-0.9, -0.9], [0.8, -1.0], [-0.5, -1.2], [0.4, -0.5]].forEach(([dx, dy], i) => { g.beginPath(); g.moveTo(cx, cy - r * (0.1 + i * 0.12)); g.lineTo(cx + dx * r, cy + dy * r * 0.8); g.stroke(); });
+      g.fillStyle = '#ff7a1a'; for (let k = 0; k < 7; k++) { g.globalAlpha = rr(0.5, 1); g.beginPath(); g.arc(cx + rr(-r * 0.8, r * 0.8), cy + rr(-r * 1.0, r * 0.4), rr(0.8, 1.8), 0, 7); g.fill(); } g.globalAlpha = 1;
+    }
+  } else {
+    const col = biome === 'nieve' ? ['#8a97a6', '#b9c5d2'] : biome === 'desierto' ? ['#b8864a', '#dba868'] : ['#1d1816', '#3a302c'];
+    const pts = []; for (let i = 0; i < 9; i++) { const a = i / 9 * Math.PI * 2, rad = r * rr(0.85, 1.1); pts.push([cx + Math.cos(a) * rad, cy + Math.sin(a) * rad * 0.78]); }
+    g.fillStyle = col[0]; g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath(); g.fill();
+    g.fillStyle = col[1]; g.beginPath(); g.moveTo(pts[6][0], pts[6][1]); g.lineTo(pts[7][0], pts[7][1] - 2); g.lineTo(pts[8][0], pts[8][1]); g.lineTo(cx, cy - r * 0.2); g.closePath(); g.fill();
+    if (biome === 'nieve') { g.fillStyle = 'rgba(255,255,255,0.9)'; g.beginPath(); g.ellipse(cx, cy - r * 0.35, r * 0.7, r * 0.28, 0, 0, 7); g.fill(); }
+    if (biome === 'lava') { g.strokeStyle = '#ff7a1a'; g.lineWidth = 1.8; g.beginPath(); g.moveTo(cx - r * 0.3, cy - r * 0.4); g.lineTo(cx, cy); g.lineTo(cx + r * 0.2, cy + r * 0.4); g.moveTo(cx, cy); g.lineTo(cx + r * 0.5, cy - r * 0.1); g.stroke(); }
+  }
+  return c;
+}
+function hazardOf(e) { for (const h of hazards) if (Math.hypot(e.x - h.x, (e.y - h.y) / 0.82) < h.r * 0.92) return h; return null; }
+function applyHazards(dt) {
+  if (!hazards.length) return;
+  [player, ...bots].forEach(e => {
+    if (!e.alive || e.isDummy) return;
+    const base = e.baseSpeed || e.speed; e.baseSpeed = base; const h = hazardOf(e);
+    e.speed = base * (h && h.type === 'snow' ? 0.6 : h && h.type === 'sand' ? 0.55 : 1);
+    if (h && h.type === 'lava') {
+      e._lava = (e._lava || 0) + dt;
+      if (e._lava >= 0.5) { e._lava = 0; fxBurst(e.x, e.y, '#ff8a30', 6, 140, 3, 0.35); if (e === player) damagePlayer(11, true); else { dmgSrcPlayer = false; damageBot(e, 11); } }
+    } else e._lava = 0;
+  });
+}
+// ---------- REY DE LA COLINA ----------
+let hill = null;
+function initHill() { hill = { x: WORLD_W / 2, y: WORLD_H / 2, r: 100, p: 0, b: 0, t: 0, goal: 60, limit: 150, owner: 'n' }; obstacles = obstacles.filter(o => Math.hypot(o.x - hill.x, o.y - hill.y) > hill.r + o.r + 20); }
+function hillBotTravel(bot, dt) {
+  const dz = dist(bot, hill), dE = player.alive ? dist(bot, player) : 999;
+  if (dz > hill.r * 0.6 && dE > 190) { const a = Math.atan2(hill.y - bot.y, hill.x - bot.x); bot.x += Math.cos(a) * bot.speed * dt; bot.y += Math.sin(a) * bot.speed * dt; bot.angle = a; bot.moving = true; bot.walkPhase += dt * 11; pushOutOfObstacles(bot); return true; }
+  return false;
+}
+function updateHill(dt) {
+  if (!hill) return;
+  hill.t += dt;
+  const pin = player.alive && dist(player, hill) < hill.r, bin = bots.some(b => b.alive && dist(b, hill) < hill.r);
+  hill.owner = pin && !bin ? 'p' : bin && !pin ? 'b' : pin && bin ? 'c' : 'n';
+  if (hill.owner === 'p') hill.p += dt; else if (hill.owner === 'b') hill.b += dt;
+  const el = document.getElementById('hillTxt'); if (el) el.innerHTML = `👑 Tú <b>${Math.floor(hill.p)}</b> · Rivales <b>${Math.floor(hill.b)}</b> / ${hill.goal} · ⏱ ${Math.max(0, Math.ceil(hill.limit - hill.t))}s`;
+  if (hill.p >= hill.goal) endMatch(true); else if (hill.b >= hill.goal) endMatch(false); else if (hill.t >= hill.limit) endMatch(hill.p >= hill.b);
+}
+function drawHill() {
+  if (!hill) return;
+  const t = performance.now() / 1000, col = hill.owner === 'p' ? '#8bc34a' : hill.owner === 'b' ? '#ff5252' : hill.owner === 'c' ? '#ffb300' : '#ffffff';
+  ctx.save(); ctx.globalAlpha = 0.22 + 0.06 * Math.sin(t * 3); ctx.fillStyle = col; ctx.beginPath(); ctx.arc(hill.x, hill.y, hill.r, 0, 7); ctx.fill();
+  ctx.globalAlpha = 0.9; ctx.strokeStyle = col; ctx.lineWidth = 4; ctx.setLineDash([14, 10]); ctx.lineDashOffset = -t * 20; ctx.beginPath(); ctx.arc(hill.x, hill.y, hill.r, 0, 7); ctx.stroke(); ctx.setLineDash([]);
+  ctx.globalAlpha = 0.9; ctx.font = '800 30px sans-serif'; ctx.textAlign = 'center'; ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,.6)'; ctx.strokeText('👑', hill.x, hill.y + 10); ctx.fillText('👑', hill.x, hill.y + 10);
+  ctx.restore();
+}
+// ---------- OLEADAS ----------
+let wave = null;
+function spawnWave(n) {
+  const isBoss = n % 3 === 0, cnt = Math.min(7, n + 2); bots = [];
+  const place = b => { for (let k = 0; k < 20; k++) { b.x = rand(60, WORLD_W - 60); b.y = rand(60, WORLD_H - 60); if (Math.hypot(b.x - WORLD_W / 2, b.y - WORLD_H / 2) > 230) break; } };
+  for (let i = 0; i < cnt; i++) { const b = spawnBot(); place(b); bots.push(b); }
+  if (isBoss) {
+    const b = spawnBot(); b.isBoss = true; b.r = 30; b.maxHp = b.hp = Math.round((380 + n * 45) * curDiff().hp); b.baseDamage = Math.round(b.baseDamage * 1.35); b.speed = b.baseSpeed = b.speed * 0.92; b.color = '#ff3030'; b.traits.outfit = '#7a0f0f'; place(b); bots.push(b);
+  }
+  wave.n = n; wave.cleared = false; wave.timer = 3;
+  bots.forEach(b => pushOutOfObstacles(b));
+  flashMessage(isBoss ? `⚠️ OLEADA ${n}: ¡JEFE!` : `Oleada ${n}`, 1700);
+}
+function updateWaves(dt) {
+  if (!wave) return;
+  const alive = bots.filter(b => b.alive).length, el = document.getElementById('waveTxt');
+  if (el) el.innerHTML = `🌊 Oleada <b>${wave.n}</b> / ${wave.max} · Rivales: <b>${alive}</b>`;
+  if (alive > 0) { wave.timer = 3; wave.cleared = false; return; }
+  if (!wave.cleared) { wave.cleared = true; if (wave.n >= wave.max) { flashMessage('¡Todas las oleadas superadas!', 1500); setTimeout(() => { if (gameActive) endMatch(true); }, 1500); } else flashMessage(`Oleada ${wave.n} superada · +35% de vida`, 1600); }
+  if (wave.n >= wave.max) return;
+  wave.timer -= dt; if (wave.timer <= 0) { player.hp = Math.min(player.maxHp, player.hp + player.maxHp * 0.35); spawnWave(wave.n + 1); }
+}
+function drawModeExtras() {
+  if (gameMode === 'hill') drawHill();
+  bots.forEach(b => { if (b.isBoss && b.alive) { ctx.save(); ctx.strokeStyle = 'rgba(255,60,40,0.8)'; ctx.lineWidth = 3; ctx.setLineDash([8, 6]); ctx.lineDashOffset = -performance.now() / 40; ctx.beginPath(); ctx.arc(b.x, b.y, b.r + 8, 0, 7); ctx.stroke(); ctx.restore(); } });
+}
+const arenaLike = () => gameMode === 'arena' || gameMode === 'hill' || gameMode === 'waves';
+
 let gameActive = false;
 let matchStartTime = 0;
 function startMatch(savedTraits, fusion, mode) {
@@ -5134,19 +5381,29 @@ function startMatch(savedTraits, fusion, mode) {
     obstacles = ballObstacles();
     bots = [];
     ['A', 'A', 'B', 'B', 'B'].forEach((team, i) => {
-      const b = spawnBot(); b.team = team; b.color = team === 'A' ? '#3a6fb0' : '#b04040'; b.traits.outfit = b.color;
+      const b = spawnBot(team === 'A' ? 'normal' : undefined); b.team = team; b.color = team === 'A' ? '#3a6fb0' : '#b04040'; b.traits.outfit = b.color;
       const idxInTeam = team === 'A' ? i : i - 2;
       b.spawnIdx = team === 'A' ? idxInTeam + 1 : idxInTeam;
       b.role = team === 'A' ? (idxInTeam === 0 ? 'striker' : 'defender') : (idxInTeam === 1 ? 'defender' : 'striker');
       bots.push(b);
     });
     Object.assign(ballMatch, { round: 1, winsA: 0, winsB: 0, lastSb: '' });
+  } else if (gameMode === 'hill') {
+    WORLD_W = W; WORLD_H = H;
+    obstacles = generateObstacles(WORLD_W, WORLD_H, 8);
+    bots = [spawnBot(), spawnBot(), spawnBot()];
+    initHill();
+  } else if (gameMode === 'waves') {
+    WORLD_W = W; WORLD_H = H;
+    obstacles = generateObstacles(WORLD_W, WORLD_H, 10);
+    wave = { n: 0, max: 6, timer: 3, cleared: false }; spawnWave(1);
   } else {
     WORLD_W = W; WORLD_H = H;
     obstacles = generateObstacles(WORLD_W, WORLD_H, 10);
     bots = [spawnBot(), spawnBot()];
   }
   camera.x = 0; camera.y = 0;
+  biome = chooseBiome(gameMode); makeHazards(gameMode);
   terrain = buildTerrain(gameMode);
   cosTrail = []; petState = null;
 
@@ -5156,7 +5413,7 @@ function startMatch(savedTraits, fusion, mode) {
   player.superDef = fusion.superDef;
   player.maxHp = fusion.vida;
   player.hp = fusion.vida;
-  player.speed = fusion.moveSpeed;
+  player.speed = fusion.moveSpeed; player.baseSpeed = fusion.moveSpeed;
   player.shootRate = 1 / fusion.reload;
   player.baseDamage = fusion.dmg;
   player.precision = fusion.precision / 100;
@@ -5170,12 +5427,14 @@ function startMatch(savedTraits, fusion, mode) {
   projectiles.length = 0;
   matchStartTime = performance.now();
   const fusionNames = fusion.picks.map(p => p.name).join(' + ');
-  const modeLabel = gameMode === 'survival' ? '🏆 Supervivencia' : gameMode === 'ball' ? '⚽ 3v3 Balón' : '⚔️ Arena';
+  const modeLabel = (gameMode === 'survival' ? '🏆 Supervivencia' : gameMode === 'ball' ? '⚽ 3v3 Balón' : gameMode === 'hill' ? '👑 Rey de la colina' : gameMode === 'waves' ? '🌊 Oleadas' : '⚔️ Arena') + ' · ' + BIOMES[biome].name + ' · ' + curDiff().label;
   const badgeLabel = getActiveBadgeLabel();
   document.getElementById('gameTitle').textContent = `🪓 HEROIC GUARDIANS — ${badgeLabel ? badgeLabel + ' ' : ''}${savedTraits.name} · ${modeLabel}`;
   document.getElementById('gameSubtitle').textContent = `Fusión ${fusion.rarity}: ${fusionNames} · Alcance ${fusion.rangeLabel} · ${fusion.weapon.name} · Super: ${fusion.superDef.name}`;
   document.getElementById('scoreBoard').innerHTML = gameMode === 'tutorial' ? ''
     : gameMode === 'ball' ? ''
+    : gameMode === 'hill' ? '<span id="hillTxt"></span>'
+    : gameMode === 'waves' ? '<span id="waveTxt"></span><br>Vidas: <span id="livesLeft">3</span>'
     : gameMode === 'survival'
     ? `Rivales vivos: <span id="kills">${bots.length}</span>`
     : `Rivales derrotados: <span id="kills">0</span> / <span id="killTarget">${TARGET_KILLS}</span><br>Vidas: <span id="livesLeft">${MAX_LIVES}</span>`;
@@ -5377,7 +5636,7 @@ function showLoadingScreen(fusion) {
 }
 
 function endMatch(won) {
-  gameActive = false;
+  gameActive = false; hitStop = 0; slowT = 0; zoomPunch = 0;
   stopMusic();
   playSfx(won ? 'victory' : 'defeat');
   const elapsed = ((performance.now() - matchStartTime) / 1000).toFixed(1);
@@ -5393,23 +5652,25 @@ function endMatch(won) {
   const fusionRarity = player.fusion.rarity;
   if (!stats.rarestFusion || RARITY_RANK[fusionRarity] > RARITY_RANK[stats.rarestFusion]) stats.rarestFusion = fusionRarity;
   const lootLv = (stats.train || {}).loot || 0;
-  const fragmentsEarned = Math.round((10 + killsThisMatch * (gameMode === 'ball' ? 15 : 4) + (won ? 40 : 0)) * (1 + 0.05 * lootLv));
+  const fragmentsEarned = Math.round((10 + killsThisMatch * (gameMode === 'ball' ? 15 : 4) + (won ? 40 : 0)) * (1 + 0.05 * lootLv) * curDiff().reward);
   stats.fragments += fragmentsEarned;
-  const hoursEarned = Math.max(1, Math.round(1 + parseFloat(elapsed) / 45 + killsThisMatch * (gameMode === 'ball' ? 1.5 : 0.6) + (won ? 4 : 0)));
+  const hoursEarned = Math.max(1, Math.round((1 + parseFloat(elapsed) / 45 + killsThisMatch * (gameMode === 'ball' ? 1.5 : 0.6) + (won ? 4 : 0)) * curDiff().reward));
   stats.hours = (stats.hours || 0) + hoursEarned;
+  const P = ensurePass(stats), lvB = passLevel(P.xp), xpEarned = Math.round((25 + killsThisMatch * (gameMode === 'ball' ? 12 : 4) + (won ? 40 : 0) + Math.min(60, parseFloat(elapsed) / 4)) * curDiff().reward); P.xp += xpEarned; const lvA = passLevel(P.xp);
   applyDailyProgress(stats, { mode: gameMode, won, kills: killsThisMatch, supers: matchSupers, deaths: deathsThisMatch, elapsed: parseFloat(elapsed) });
   saveStats(stats);
 
   document.getElementById('endTitle').textContent = won ? '¡Victoria!' : (gameMode === 'ball' ? 'Derrota' : 'Has caído');
   document.getElementById('endSubtitle').textContent = gameMode === 'ball' ? `Rondas: ${ballMatch.winsA} – ${ballMatch.winsB}` : won
-    ? (gameMode === 'survival' ? 'Has sido el último en pie' : 'Has derrotado a suficientes rivales')
-    : (gameMode === 'arena' ? `Te has quedado sin vidas (${MAX_LIVES} caídas)` : 'Tu Fusión no ha sobrevivido esta vez');
+    ? (gameMode === 'survival' ? 'Has sido el último en pie' : gameMode === 'hill' ? 'Has dominado la colina' : gameMode === 'waves' ? '¡Has superado todas las oleadas!' : 'Has derrotado a suficientes rivales')
+    : (gameMode === 'arena' ? `Te has quedado sin vidas (${MAX_LIVES} caídas)` : gameMode === 'hill' ? 'Los rivales han dominado la colina' : gameMode === 'waves' ? `Has caído en la oleada ${wave ? wave.n : 1}` : 'Tu Fusión no ha sobrevivido esta vez');
   document.getElementById('endStats').innerHTML = `
     <div><div class="fusion-stat-label">${gameMode === 'ball' ? 'Rondas ganadas' : gameMode === 'survival' ? 'Rivales eliminados' : 'Rivales derrotados'}</div><div class="fusion-stat-value">${killsThisMatch}</div></div>
     <div><div class="fusion-stat-label">Tiempo de partida</div><div class="fusion-stat-value">${elapsed}s</div></div>
     <div style="grid-column: 1 / -1;"><div class="fusion-stat-label">Tu Fusión</div><div class="fusion-stat-value">${player.fusion.rarity}: ${player.fusion.picks.map(p => p.name).join(' + ')}</div></div>
     <div style="grid-column: 1 / -1;"><div class="fusion-stat-label">Fragmentos ganados</div><div class="fusion-stat-value">🔶 +${fragmentsEarned} (total: ${stats.fragments})</div></div>
     <div style="grid-column: 1 / -1;"><div class="fusion-stat-label">Horas de entrenamiento ganadas</div><div class="fusion-stat-value">⏱ +${hoursEarned} (total: ${stats.hours})</div></div>
+    <div style="grid-column: 1 / -1;"><div class="fusion-stat-label">Pase de temporada</div><div class="fusion-stat-value">🎖 +${xpEarned} XP · Nivel ${lvA}${lvA > lvB ? ' — ¡has subido de nivel! Cobra el premio en Entrenamiento → Pase' : ''}</div></div>
   `;
   showScreen('matchEndScreen');
 }
@@ -5438,9 +5699,11 @@ document.getElementById('backToMenuBtn').addEventListener('click', () => {
 
 let last = performance.now();
 function loop(now) {
-  const dt = Math.min(0.033, (now - last) / 1000);
+  const real = Math.min(0.05, (now - last) / 1000); let dt = Math.min(0.033, real);
   last = now;
-  if (gameActive) { update(dt); draw(); }
+  if (hitStop > 0) { hitStop -= real; dt = 0; } else if (slowT > 0) { slowT -= real; dt *= slowScale; }
+  zoomPunch = Math.max(0, zoomPunch - real * 1.5);
+  if (gameActive) { if (dt > 0) update(dt); draw(); }
   requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);
