@@ -1,0 +1,16 @@
+{
+  "name": "Heroic Guardians",
+  "short_name": "Heroic",
+  "description": "Arena de combate con Fusiones de guardianes / Guardian-fusion arena brawler",
+  "start_url": "./heroic-guardians-v1%20(3).html",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#0b0912",
+  "theme_color": "#0b0912",
+  "icons": [
+    { "src": "icono-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icono-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icono-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
