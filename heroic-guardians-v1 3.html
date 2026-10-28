@@ -411,6 +411,27 @@
   .ls-bottom .loading-badge-name { font-size: 9px; max-width: 60px; }
   .ls-bar { flex: 1; max-width: 420px; } .ls-bar .loading-progress-wrap { width: 100%; }
   .ls-tip { margin-top: 6px; font-size: 11px; color: #e8d9c4; opacity: .85; text-align: center; text-shadow: 0 1px 4px #000; }
+  /* ===== PRESENTACIÓN DE EQUIPOS ===== */
+  .ti-stage { position: relative; width: 100%; height: 100dvh; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; cursor: pointer; }
+  .ti-stage.t1 { background: radial-gradient(circle, rgba(255,255,255,.16) 1.6px, transparent 2.2px) 0 0/13px 13px, linear-gradient(115deg,#1b3fa8,#3d8cff 55%,#8fdcff); }
+  .ti-stage.t2 { background: radial-gradient(circle, rgba(255,230,150,.18) 1.6px, transparent 2.2px) 0 0/13px 13px, linear-gradient(115deg,#a81408,#ff3a1a 55%,#ff9a2a); }
+  .ti-banner { font-family: "Arial Black", Impact, sans-serif; font-size: clamp(20px, 6vh, 40px); color: #fff; letter-spacing: 2px; padding: 4px 28px; background: rgba(0,0,0,.45); transform: skewX(-10deg); text-shadow: 0 3px 0 rgba(0,0,0,.5); animation: tiBan .45s cubic-bezier(.2,1.4,.4,1); }
+  @keyframes tiBan { from { transform: skewX(-10deg) scale(.4); opacity: 0; } }
+  .ti-cards { display: flex; gap: clamp(8px, 2vw, 18px); justify-content: center; align-items: stretch; padding: 0 12px; max-width: 100%; }
+  .ti-card { width: min(29vw, 250px); border-radius: 14px; padding: 8px; box-sizing: border-box; border: 2px solid rgba(255,255,255,.7); box-shadow: 0 8px 22px rgba(0,0,0,.45); color: #fff; animation: tiCard .5s cubic-bezier(.2,1.2,.4,1) both; }
+  .t1 .ti-card { --from: -90px; } .t2 .ti-card { --from: 90px; }
+  @keyframes tiCard { from { transform: translateX(var(--from)) scale(.8); opacity: 0; } }
+  .ti-top { display: flex; align-items: flex-end; justify-content: space-between; }
+  .ti-photo { position: relative; width: clamp(40px, 12vh, 66px); height: clamp(40px, 12vh, 66px); border-radius: 50%; border: 3px solid; overflow: hidden; background: rgba(0,0,0,.4); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 22px; }
+  .ti-photo img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .ti-av { height: clamp(70px, 24vh, 120px); width: auto; filter: drop-shadow(0 3px 4px rgba(0,0,0,.5)); }
+  .ti-name { font-weight: 800; font-size: clamp(12px, 3.4vh, 17px); margin-top: 4px; text-shadow: 0 2px 0 rgba(0,0,0,.5); }
+  .ti-tag { font-size: clamp(9px, 2.4vh, 11px); opacity: .9; letter-spacing: .5px; text-transform: uppercase; }
+  .ti-stats { margin-top: 5px; background: rgba(0,0,0,.38); border-radius: 8px; padding: 5px 6px; }
+  .ti-row { display: flex; align-items: center; gap: 5px; font-size: clamp(8px, 2.3vh, 11px); line-height: 1.5; }
+  .ti-row span { width: 64px; white-space: nowrap; } .ti-row i { flex: 1; height: 5px; background: rgba(255,255,255,.2); border-radius: 4px; overflow: hidden; } .ti-row b { display: block; height: 100%; background: linear-gradient(90deg,#ffe27a,#ff9a1a); } .ti-row em { width: 40px; text-align: right; font-style: normal; font-weight: 700; }
+  .ti-foot { font-size: clamp(10px, 2.8vh, 13px); font-weight: 700; text-shadow: 0 2px 0 rgba(0,0,0,.5); color: #fff; min-height: 16px; }
+  .ti-skip { position: absolute; bottom: 6px; right: 12px; font-size: 10px; color: rgba(255,255,255,.7); }
   .loading-badges { position: relative; z-index: 2; display: flex; align-items: flex-end; gap: 18px; margin-bottom: 40px; }
   .loading-badge { display: flex; flex-direction: column; align-items: center; gap: 8px; }
   .loading-badge-ring { position: relative; width: 78px; height: 78px; }
@@ -621,6 +642,8 @@
   <label class="set-row">🔊 Efectos <input type="range" id="setSfx" min="0" max="100"><b id="setSfxV"></b></label>
   <label class="set-row">🕹️ Tamaño de botones táctiles <input type="range" id="setTouch" min="40" max="140" step="10"><b id="setTouchV"></b></label>
   <label class="set-row">📳 Vibración (Android) <input type="checkbox" id="setVib"></label>
+  <label class="set-row">🎨 Color de tu tarjeta de equipo <input type="color" id="setCardColor"></label>
+  <label class="set-row">Usar mi color (en vez del fondo de la tienda) <input type="checkbox" id="setUseCard"></label>
   <button id="setDone" style="width:100%;margin-top:14px;padding:11px;background:var(--accent);color:#1a1006;border:none;border-radius:8px;font-weight:700;cursor:pointer">Listo</button>
 </div></div>
 <div id="accountModal"><div class="acc-box">
@@ -745,6 +768,16 @@
         <div class="ls-tip" id="loadingTip"></div>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- ================= PRESENTACIÓN DE EQUIPOS ================= -->
+<div class="screen" id="teamIntroScreen">
+  <div class="ti-stage t1" id="tiStage">
+    <div class="ti-banner" id="tiBanner"></div>
+    <div class="ti-cards" id="tiCards"></div>
+    <div class="ti-foot" id="tiFoot"></div>
+    <div class="ti-skip">Toca para continuar</div>
   </div>
 </div>
 
@@ -1496,7 +1529,7 @@ function showScreen(id) {
   fitScreen();
 }
 // En móviles en horizontal (poca altura) las pantallas de menú se encogen para verse enteras, sin tener que bajar.
-const FIT_SKIP = ['gameScreen', 'shopScreen', 'trainScreen', 'loadingScreen'];
+const FIT_SKIP = ['gameScreen', 'shopScreen', 'trainScreen', 'loadingScreen', 'teamIntroScreen'];
 function fitScreen() {
   const el = document.querySelector('.screen.active'); if (!el) return;
   document.querySelectorAll('.screen').forEach(x => { x.style.zoom = ''; });
@@ -2011,7 +2044,7 @@ function renderTrain() {
 // MISIONES DIARIAS + RACHA DE ENTRADA + AJUSTES
 // =====================================================================
 const SETTINGS_KEY = 'heroicGuardiansSettings';
-const DEFAULT_SETTINGS = { music: 100, sfx: 100, vibrate: true, touch: 100 };
+const DEFAULT_SETTINGS = { music: 100, sfx: 100, vibrate: true, touch: 100, cardColor: '#ff7a1a', useCardColor: false };
 let settings = Object.assign({}, DEFAULT_SETTINGS, (() => { try { return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}; } catch (e) { return {}; } })());
 function saveSettings() { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (e) {} markLocalChange(); }
 function applySettings() {
@@ -2188,12 +2221,14 @@ function renderShop() {
 }
 
 
-function syncSettingsUI() { document.getElementById('setMusic').value = settings.music; document.getElementById('setSfx').value = settings.sfx; document.getElementById('setTouch').value = settings.touch; document.getElementById('setVib').checked = settings.vibrate;
+function syncSettingsUI() { document.getElementById('setMusic').value = settings.music; document.getElementById('setSfx').value = settings.sfx; document.getElementById('setTouch').value = settings.touch; document.getElementById('setVib').checked = settings.vibrate; document.getElementById('setCardColor').value = settings.cardColor; document.getElementById('setUseCard').checked = settings.useCardColor;
   document.getElementById('setMusicV').textContent = settings.music + '%'; document.getElementById('setSfxV').textContent = settings.sfx + '%'; document.getElementById('setTouchV').textContent = settings.touch + '%'; }
 document.getElementById('settingsBtn').addEventListener('click', () => { initAudio(); playSfx('click'); syncSettingsUI(); document.getElementById('settingsModal').classList.add('open'); });
 const closeSettings = () => { document.getElementById('settingsModal').classList.remove('open'); saveSettings(); };
 document.getElementById('setClose').addEventListener('click', closeSettings); document.getElementById('setDone').addEventListener('click', closeSettings);
 [['setMusic', 'music'], ['setSfx', 'sfx'], ['setTouch', 'touch']].forEach(([id, k]) => document.getElementById(id).addEventListener('input', e => { settings[k] = +e.target.value; applySettings(); syncSettingsUI(); if (k === 'sfx') playSfx('click'); }));
+document.getElementById('setCardColor').addEventListener('input', e => { settings.cardColor = e.target.value; settings.useCardColor = true; document.getElementById('setUseCard').checked = true; });
+document.getElementById('setUseCard').addEventListener('change', e => { settings.useCardColor = e.target.checked; });
 document.getElementById('setVib').addEventListener('change', e => { settings.vibrate = e.target.checked; if (settings.vibrate) vib(60); });
 applySettings();
 document.getElementById('fsBtn').addEventListener('click', () => { goFullscreen(); });
@@ -2211,6 +2246,82 @@ document.getElementById('shopBackBtn').addEventListener('click', () => {
   playSfx('click'); shopTry = {};
   showScreen('welcomeBack'); renderStatsLine();
 });
+
+// =====================================================================
+// PRESENTACIÓN DE EQUIPOS ANTES DE CADA PARTIDO
+// =====================================================================
+SHOP_ITEMS.cardbg = [
+  { id: 'cbg_cielo', label: 'Fondo Cielo', value: 'cielo', price: 60, css: 'linear-gradient(135deg,#2a5fe8,#86d9ff)' },
+  { id: 'cbg_lava', label: 'Fondo Lava', value: 'lava', price: 60, css: 'linear-gradient(135deg,#d11a08,#ff9a1a)' },
+  { id: 'cbg_carbon', label: 'Fondo Carbón', value: 'carbon', price: 70, css: 'linear-gradient(135deg,#15151c,#555a66)' },
+  { id: 'cbg_bosque', label: 'Fondo Bosque', value: 'bosque', price: 80, css: 'linear-gradient(135deg,#0e6a45,#3ed17a)' },
+  { id: 'cbg_amatista', label: 'Fondo Amatista', value: 'amatista', price: 90, css: 'linear-gradient(135deg,#5a1fa8,#ff4fd8)' },
+  { id: 'cbg_noche', label: 'Fondo Noche', value: 'noche', price: 100, css: 'linear-gradient(135deg,#070a24,#3a2a7a)' },
+  { id: 'cbg_hielo', label: 'Fondo Hielo', value: 'hielo', price: 120, css: 'linear-gradient(135deg,#6fb6e0,#f2fbff)' },
+  { id: 'cbg_atardecer', label: 'Fondo Atardecer', value: 'atardecer', price: 140, css: 'linear-gradient(160deg,#6b2fa0,#ff5a36 55%,#ffb347)' },
+  { id: 'cbg_oro', label: 'Fondo Oro', value: 'oro', price: 160, css: 'linear-gradient(135deg,#7a5a08,#ffd54f 60%,#fff2a8)' },
+  { id: 'cbg_neon', label: 'Fondo Neón', value: 'neon', price: 200, css: 'linear-gradient(135deg,#00e5ff,#7a2cff 55%,#ff00c8)' },
+  { id: 'cbg_galaxia', label: 'Fondo Galaxia', value: 'galaxia', price: 240, css: 'radial-gradient(circle at 30% 30%,#7a3aff,#1a0a46 60%,#05030f)' },
+  { id: 'cbg_arcoiris', label: 'Fondo Arcoíris', value: 'arcoiris', price: 320, css: 'linear-gradient(135deg,#ff3b3b,#ffb300,#3ed17a,#2a8fff,#a43bff)' }
+];
+SHOP_CATEGORY_LABELS.cardbg = 'Fondos de tu tarjeta de equipo';
+SHOP_ORDER.push('cardbg'); EQUIP_CATS.push('cardbg');
+function cardBgCss(value) { const it = (SHOP_ITEMS.cardbg || []).find(i => i.value === value); return it ? it.css : null; }
+function playerCardBg(arch) {
+  if (settings.useCardColor && settings.cardColor) return `linear-gradient(145deg,${settings.cardColor},${shadeColor(settings.cardColor, -0.5)})`;
+  const eq = getEq(); const css = eq.cardbg && cardBgCss(eq.cardbg);
+  if (css) return css;
+  const col = ARCH_COLORS[arch] || '#4fa8e0'; return `linear-gradient(145deg,${col},${shadeColor(col, -0.55)})`;
+}
+function seedHash(str) { let h = 2166136261; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+function guardianLook(p) {
+  const h = seedHash(p.slug), pick = (a, k) => a[(h >>> k) % a.length];
+  return { skin: pick(SKIN_TONES, 0), hairColor: pick(HAIR_COLORS, 3), hairStyle: pick(['corto', 'largo', 'trenzas', 'cresta', 'coleta', 'rizos', 'mono', 'bob'], 6), outfit: ARCH_COLORS[p.arch] || '#4fa8e0', weapon: pick(LB_WEAPONS, 9) };
+}
+function tiStat(label, pct, val) { return `<div class="ti-row"><span>${label}</span><i><b style="width:${Math.max(6, Math.min(100, pct))}%"></b></i><em>${val}</em></div>`; }
+function fusionStatRows(f, isBot) {
+  return tiStat('❤ Vida', f.vida / (isBot ? 150 : 700) * 100, f.vida) + tiStat('⚔ Daño', f.dmg / 60 * 100, f.dmg) + tiStat('⚡ Veloc.', f.moveSpeed / 300 * 100, f.moveSpeed)
+    + tiStat('🎯 Alcance', f.range / 330 * 100, f.rangeLabel) + tiStat('🔁 Cadencia', 1 / f.reload / 1.7 * 100, (1 / f.reload).toFixed(1) + '/s');
+}
+function teamCard(c) {
+  const el = document.createElement('div'); el.className = 'ti-card'; el.style.background = c.bg;
+  const col = c.col || '#4fa8e0';
+  el.innerHTML = `<div class="ti-top"><div class="ti-photo" style="border-color:${col}"><span>${c.name[0]}</span><img src="characters/${c.slug}.png" alt="" onerror="this.remove()"></div><canvas class="ti-av" width="130" height="150"></canvas></div>
+    <div class="ti-name">${c.name}</div><div class="ti-tag">${c.tag}</div><div class="ti-stats">${c.rows}</div>`;
+  const cx = el.querySelector('canvas').getContext('2d');
+  drawCharacter(cx, 65, 78, 0.56, c.look, 0, c.eq || {});
+  return el;
+}
+function buildTeams() {
+  const f = player.fusion, tr = player.traits;
+  const botCard = (b, extra) => ({ name: b.fusion.picks[0].name, slug: b.fusion.picks[0].slug, col: ARCH_COLORS[b.fusion.picks[0].arch], tag: extra || ('Fusión ' + b.fusion.rarity), bg: lbPick(SHOP_ITEMS.cardbg).css, look: b.traits, rows: fusionStatRows(Object.assign({}, b.fusion, { vida: Math.round(b.maxHp) }), true) });
+  const meCard = () => ({ name: tr.name || 'Tú', slug: f.picks[0].slug, col: ARCH_COLORS[f.picks[0].arch], tag: 'Tú · Fusión ' + f.rarity, bg: playerCardBg(f.picks[0].arch), look: tr, eq: getEq(), rows: fusionStatRows(f, false) });
+  let t1, t2;
+  if (gameMode === 'ball') {
+    t1 = { title: 'TU EQUIPO', cards: [meCard(), ...bots.filter(b => b.team === 'A').map(b => botCard(b, 'Aliado'))] };
+    t2 = { title: 'EQUIPO RIVAL', cards: bots.filter(b => b.team === 'B').map(b => botCard(b, 'Rival')) };
+  } else {
+    const ordPick = ['Inteligencia', 'Fuerza', 'Velocidad'];
+    t1 = { title: 'TUS TRES GUARDIANES', cards: f.picks.map((p, i) => { const fl = archFlags(p.arch), look = guardianLook(p); return { name: p.name, slug: p.slug, col: ARCH_COLORS[p.arch], tag: 'Guardián ' + (i + 1), bg: playerCardBg(p.arch), look, rows: tiStat('🧠 Intelig.', fl.int ? 92 : 28, fl.int ? 'Alta' : 'Baja') + tiStat('💪 Fuerza', fl.fue ? 92 : 28, fl.fue ? 'Alta' : 'Baja') + tiStat('🏃 Veloc.', fl.vel ? 92 : 28, fl.vel ? 'Alta' : 'Baja') }; }),
+      foot: `Fusión ${f.rarity} · ❤ ${f.vida} · ⚔ ${f.dmg} · ⚡ ${f.moveSpeed} · 🎯 ${f.rangeLabel} · ${f.weapon.name}` };
+    const rivals = bots.slice().sort((a, b) => b.fusion.dmg - a.fusion.dmg).slice(0, 3);
+    t2 = { title: gameMode === 'survival' ? 'RIVALES MÁS PELIGROSOS' : 'EQUIPO RIVAL', cards: rivals.map(b => botCard(b, 'Rival')), foot: bots.length > 3 ? `…y ${bots.length - 3} rivales más en el mapa` : '' };
+  }
+  return [t1, t2];
+}
+function showTeamIntro(next) {
+  const teams = buildTeams(), stage = document.getElementById('tiStage'); let step = -1, timer = 0, done = false;
+  const finish = () => { if (done) return; done = true; clearTimeout(timer); stage.onclick = null; next(); };
+  const show = () => {
+    clearTimeout(timer); step++; if (step >= teams.length) return finish();
+    const tm = teams[step]; stage.className = 'ti-stage t' + (step + 1);
+    document.getElementById('tiBanner').textContent = tm.title;
+    const box = document.getElementById('tiCards'); box.innerHTML = ''; tm.cards.forEach((c, i) => { const el = teamCard(c); el.style.animationDelay = (i * 0.18) + 's'; box.appendChild(el); });
+    document.getElementById('tiFoot').textContent = tm.foot || '';
+    playSfx('click'); timer = setTimeout(show, 2800);
+  };
+  showScreen('teamIntroScreen'); stage.onclick = show; show();
+}
 
 (function init() {
   function decideStartScreen() {
@@ -5224,7 +5335,7 @@ function showLoader(o) {
   setTimeout(() => { clearInterval(tInterval); stopLoadingBattle(); o.onDone && o.onDone(); }, dur);
 }
 function showLoadingScreen(fusion) {
-  showLoader({ fusion, duration: 3000, onDone: () => {
+  showLoader({ fusion, duration: 3000, onDone: () => showTeamIntro(() => {
     showScreen('gameScreen');
     gameActive = true;
     startMusic();
@@ -5233,7 +5344,7 @@ function showLoadingScreen(fusion) {
     ins.style.opacity = 1;
     clearTimeout(instructionsFadeTimer);
     instructionsFadeTimer = setTimeout(() => { ins.style.opacity = 0.22; }, 10000);
-  } });
+  }) });
 }
 
 function endMatch(won) {
