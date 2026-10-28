@@ -41,6 +41,7 @@
   #accountChip { top: calc(10px + env(safe-area-inset-top)) !important; }
   button, .shop-item-preview, #game { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; touch-action: manipulation; }
   #game { touch-action: none; }
+  #touchFireBtn, #touchSuperBtn { zoom: var(--ts, 1); }
   #touchFireBtn { bottom: calc(20px + env(safe-area-inset-bottom)); }
   #touchSuperBtn { bottom: calc(20px + env(safe-area-inset-bottom)); }
   .acc-danger { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line); text-align: center; }
@@ -553,6 +554,10 @@
   body[data-screen="creator"] #accountChip, body[data-screen="welcomeBack"] #accountChip { display: block; }
   #accountChipBtn { background: var(--panel-2); color: var(--ink); border: 1px solid var(--line); border-radius: 20px; padding: 8px 14px; font-size: 12.5px; cursor: pointer; max-width: 70vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   #accountChipBtn:hover { border-color: var(--accent); }
+  #settingsModal { position: fixed; inset: 0; background: rgba(0,0,0,.7); z-index: 100; display: none; align-items: center; justify-content: center; padding: 16px; }
+  #settingsModal.open { display: flex; }
+  .set-row { display: flex; align-items: center; gap: 10px; margin-top: 14px; font-size: 14px; } .set-row input[type=range] { flex: 1; } .set-row b { width: 38px; text-align: right; font-size: 12px; color: var(--ink-dim); }
+  #settingsBtn { background: var(--panel); color: var(--ink); border: 2px solid var(--line); border-radius: 12px; padding: 11px 26px; font-size: 14px; font-weight: 700; cursor: pointer; margin-top: 10px; min-width: 190px; }
   #accountModal { position: fixed; inset: 0; background: rgba(0,0,0,.7); z-index: 100; display: none; align-items: center; justify-content: center; padding: 16px; }
   #accountModal.open { display: flex; }
   .acc-box { position: relative; background: var(--panel-2, #1a1b22); border: 1px solid var(--line); border-radius: 14px; padding: 22px; width: 100%; max-width: 380px; max-height: 92vh; overflow: auto; color: var(--ink); }
@@ -680,6 +685,15 @@
 </div>
 
 <div id="accountChip"><button id="accountChipBtn">👤 Iniciar sesión / Crear cuenta</button></div>
+<div id="settingsModal"><div class="acc-box">
+  <button id="setClose" aria-label="Cerrar" style="position:absolute;top:10px;right:12px;background:none;border:none;color:var(--ink-dim);font-size:18px;cursor:pointer">✕</button>
+  <h2>Ajustes</h2>
+  <label class="set-row">🎵 Música <input type="range" id="setMusic" min="0" max="100"><b id="setMusicV"></b></label>
+  <label class="set-row">🔊 Efectos <input type="range" id="setSfx" min="0" max="100"><b id="setSfxV"></b></label>
+  <label class="set-row">🕹️ Tamaño de botones táctiles <input type="range" id="setTouch" min="40" max="140" step="10"><b id="setTouchV"></b></label>
+  <label class="set-row">📳 Vibración (Android) <input type="checkbox" id="setVib"></label>
+  <button id="setDone" style="width:100%;margin-top:14px;padding:11px;background:var(--accent);color:#1a1006;border:none;border-radius:8px;font-weight:700;cursor:pointer">Listo</button>
+</div></div>
 <div id="accountModal"><div class="acc-box">
   <button id="accClose" aria-label="Cerrar">✕</button>
   <h2>Tu cuenta</h2>
@@ -721,6 +735,7 @@
   <button id="playBtn">Jugar</button>
   <button id="shopBtn">🛒 Tienda</button>
   <button id="trainBtn">💪 Entrenamiento</button>
+  <button id="settingsBtn">⚙️ Ajustes</button>
   <button id="fsBtn">⛶ Pantalla completa</button>
   <button id="resetLink">Restablecer personaje (debug)</button>
 </div>
@@ -733,7 +748,7 @@
     <p class="shop-balance">⏱ <span id="trainHours">0</span> horas de entrenamiento</p>
     <p style="font-size:12px;color:var(--ink-dim);margin-top:4px">Ganas horas jugando partidas (más por victorias, eliminaciones y tiempo) y cobrando logros</p>
   </div>
-  <div class="tr-tabs"><button id="trainTabT" class="on">💪 Mejoras</button><button id="trainTabA">🏅 Logros</button></div>
+  <div class="tr-tabs"><button id="trainTabD" class="on">📅 Diarias</button><button id="trainTabT">💪 Mejoras</button><button id="trainTabA">🏅 Logros</button></div>
   <div class="tr-body" id="trainBody"></div>
   <button id="trainBackBtn" style="margin-top: 20px; background: none; border: none; color: var(--ink-dim); text-decoration: underline; cursor: pointer; font-size: 13px;">Volver</button>
 </div>
@@ -887,6 +902,7 @@ function saveStats(s) {
   markLocalChange();
 }
 function renderStatsLine() {
+  try { const tb = document.getElementById('trainBtn'); if (tb) { const n = dailyClaimables(trainState()); tb.textContent = '💪 Entrenamiento' + (n ? ` · 📅 ${n} 🎁` : ''); } } catch (e) {}
   const el = document.getElementById('statsLine');
   if (!el) return;
   const s = loadStats();
@@ -1767,7 +1783,7 @@ const FIREBASE_CONFIG = {
 const SESSION_KEY = 'hgSession', GUEST_BACKUP_KEY = 'hgGuestBackup', LOCAL_ACCOUNTS_KEY = 'hgLocalAccounts', LOCAL_UPDATED_KEY = 'hgLocalUpdated', SKIP_INTRO_KEY = 'hgSkipIntro';
 const MIN_PASSWORD = 8, EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const CLOUD_CONFIG = FIREBASE_CONFIG || window.HG_FIREBASE_CONFIG || null;
-const GAME_KEYS = [STORAGE_KEY, STATS_KEY, SHOP_KEY, TUTORIAL_KEY];
+const GAME_KEYS = [STORAGE_KEY, STATS_KEY, SHOP_KEY, TUTORIAL_KEY, 'heroicGuardiansSettings'];
 const ACCOUNT_ERRORS = {
   'auth/invalid-email': 'Ese correo no es válido.', 'auth/email-already-in-use': 'Ya existe una cuenta con ese correo. Prueba a iniciar sesión.',
   'auth/weak-password': 'La contraseña es demasiado débil (mínimo 8 caracteres).', 'auth/user-not-found': 'Correo o contraseña incorrectos.',
@@ -2029,10 +2045,12 @@ function renderTrain() {
   const s = trainState();
   document.getElementById('trainHours').textContent = s.hours;
   const box = document.getElementById('trainBody'); box.innerHTML = '';
-  document.getElementById('trainTabT').classList.toggle('on', trainTab === 'train'); document.getElementById('trainTabA').classList.toggle('on', trainTab === 'ach');
+  document.getElementById('trainTabT').classList.toggle('on', trainTab === 'train'); document.getElementById('trainTabA').classList.toggle('on', trainTab === 'ach'); document.getElementById('trainTabD').classList.toggle('on', trainTab === 'daily');
+  { const dc = dailyClaimables(s); document.getElementById('trainTabD').textContent = '📅 Diarias' + (dc ? ` (${dc})` : ''); }
   const claimable = ACH_DEFS.filter(a => !s.ach[a.id] && a.cur(s) >= a.goal).length;
   document.getElementById('trainTabA').textContent = '🏅 Logros' + (claimable ? ` (${claimable})` : '');
-  if (trainTab === 'train') {
+  if (trainTab === 'daily') { renderDaily(box, s); }
+  else if (trainTab === 'train') {
     ['min', 'pct', 'ext'].forEach(g => {
       const h = document.createElement('div'); h.className = 'tr-group'; h.innerHTML = `<b>${TRAIN_GROUPS[g][0]}</b><span>${TRAIN_GROUPS[g][1]}</span>`; box.appendChild(h);
       TRAIN_DEFS.filter(d => d.grp === g).forEach(d => {
@@ -2059,6 +2077,89 @@ function renderTrain() {
       card.appendChild(b); box.appendChild(card);
     });
   }
+}
+
+// =====================================================================
+// MISIONES DIARIAS + RACHA DE ENTRADA + AJUSTES
+// =====================================================================
+const SETTINGS_KEY = 'heroicGuardiansSettings';
+const DEFAULT_SETTINGS = { music: 100, sfx: 100, vibrate: true, touch: 100 };
+let settings = Object.assign({}, DEFAULT_SETTINGS, (() => { try { return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}; } catch (e) { return {}; } })());
+function saveSettings() { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (e) {} markLocalChange(); }
+function applySettings() {
+  try { if (musicGain) musicGain.gain.value = 0.2 * settings.music / 100; if (sfxGain) sfxGain.gain.value = 0.8 * settings.sfx / 100; } catch (e) {}
+  document.documentElement.style.setProperty('--ts', (0.6 + settings.touch / 100 * 0.6).toFixed(2));
+}
+function vib(ms) { if (settings.vibrate && navigator.vibrate) { try { navigator.vibrate(ms); } catch (e) {} } }
+
+function todayStr() { return new Date().toLocaleDateString('sv'); }
+function yesterdayStr() { const d = new Date(); d.setDate(d.getDate() - 1); return d.toLocaleDateString('sv'); }
+const DAILY_POOL = [
+  { id: 'play3', text: 'Juega 3 partidas', goal: 3, hours: 3, frag: 40, inc: s => 1 },
+  { id: 'win2', text: 'Gana 2 partidas', goal: 2, hours: 5, frag: 60, inc: s => s.won ? 1 : 0 },
+  { id: 'kills10', text: 'Derrota a 10 rivales', goal: 10, hours: 4, frag: 50, inc: s => s.kills },
+  { id: 'ball1', text: 'Juega 1 partida de 3v3 Balón', goal: 1, hours: 3, frag: 40, inc: s => s.mode === 'ball' ? 1 : 0 },
+  { id: 'winArena', text: 'Gana una partida en la Arena', goal: 1, hours: 4, frag: 50, inc: s => s.won && s.mode === 'arena' ? 1 : 0 },
+  { id: 'winSurv', text: 'Gana una partida de Supervivencia', goal: 1, hours: 5, frag: 70, inc: s => s.won && s.mode === 'survival' ? 1 : 0 },
+  { id: 'supers5', text: 'Usa el superataque 5 veces', goal: 5, hours: 4, frag: 50, inc: s => s.supers },
+  { id: 'flawless', text: 'Gana sin caer ni una vez', goal: 1, hours: 6, frag: 80, inc: s => s.won && s.deaths === 0 ? 1 : 0 },
+  { id: 'survive', text: 'Aguanta 2 minutos en una partida', goal: 1, hours: 4, frag: 50, inc: s => s.elapsed >= 120 ? 1 : 0 }
+];
+const LOGIN_REWARDS = [[1, 20], [1, 30], [2, 40], [2, 50], [3, 60], [3, 80], [8, 200]];
+function strHash(str) { let h = 2166136261; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+function ensureDaily(st) {
+  const today = todayStr();
+  if (!st.daily || st.daily.date !== today) {
+    let a = strHash(today) || 1; const rnd = () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+    const pool = DAILY_POOL.slice(), pick = [];
+    while (pick.length < 3) pick.push(pool.splice(Math.floor(rnd() * pool.length), 1)[0].id);
+    st.daily = { date: today, missions: pick.map(id => ({ id, p: 0, c: false })), bonus: false };
+  }
+  const L = st.login || { last: null, streak: 0, claimed: false };
+  if (L.last !== today) { L.streak = L.last === yesterdayStr() ? L.streak + 1 : 1; L.last = today; L.claimed = false; }
+  st.login = L; return st;
+}
+function dailyClaimables(st) {
+  ensureDaily(st); let n = 0;
+  st.daily.missions.forEach(m => { const d = DAILY_POOL.find(x => x.id === m.id); if (!m.c && m.p >= d.goal) n++; });
+  if (!st.login.claimed) n++;
+  if (!st.daily.bonus && st.daily.missions.every(m => m.c)) n++;
+  return n;
+}
+function applyDailyProgress(st, summary) {
+  ensureDaily(st);
+  st.daily.missions.forEach(m => { const d = DAILY_POOL.find(x => x.id === m.id); m.p = Math.min(d.goal, m.p + (d.inc(summary) || 0)); });
+}
+function renderDaily(box, s) {
+  ensureDaily(s); saveStats(s);
+  const L = s.login, day = ((L.streak - 1) % 7);
+  const card = document.createElement('div'); card.className = 'tr-card';
+  let pips = ''; for (let i = 0; i < 7; i++) pips += `<i class="${i < day || (i === day && L.claimed) ? 'on' : ''}"></i>`;
+  const [rh, rf] = LOGIN_REWARDS[day];
+  card.innerHTML = `<div class="tr-ico">🔥</div><div class="tr-main"><div class="tr-name">Racha de entrada <em>Día ${L.streak}</em></div><div class="tr-desc">Hoy: ⏱ ${rh} · 🔶 ${rf}</div><div class="tr-next">Entra cada día: el 7.º día del ciclo es el premio gordo (⏱ 8 · 🔶 200)</div><div class="tr-pips">${pips}</div></div>`;
+  const b = document.createElement('button'); b.className = 'tr-btn';
+  if (L.claimed) { b.textContent = 'Cobrado ✓'; b.disabled = true; b.classList.add('max'); }
+  else { b.textContent = 'Cobrar'; b.classList.add('claim'); b.addEventListener('click', () => { const t = trainState(); ensureDaily(t); if (t.login.claimed) return; t.login.claimed = true; t.hours += rh; t.fragments = (t.fragments || 0) + rf; saveStats(t); playSfx('victory'); renderTrain(); renderStatsLine(); }); }
+  card.appendChild(b); box.appendChild(card);
+  const h = document.createElement('div'); h.className = 'tr-group'; h.innerHTML = '<b>Misiones de hoy</b><span>Se renuevan cada día a medianoche</span>'; box.appendChild(h);
+  s.daily.missions.forEach((m, idx) => {
+    const d = DAILY_POOL.find(x => x.id === m.id), ready = !m.c && m.p >= d.goal;
+    const c = document.createElement('div'); c.className = 'tr-card' + (m.c ? ' done' : '');
+    c.innerHTML = `<div class="tr-ico">🎯</div><div class="tr-main"><div class="tr-name">${d.text} <em>${m.p}/${d.goal}</em></div><div class="tr-bar"><i style="width:${m.p / d.goal * 100}%"></i></div><div class="tr-next">Recompensa: ⏱ ${d.hours} · 🔶 ${d.frag}</div></div>`;
+    const bb = document.createElement('button'); bb.className = 'tr-btn';
+    if (m.c) { bb.textContent = 'Cobrado ✓'; bb.disabled = true; bb.classList.add('max'); }
+    else if (ready) { bb.textContent = 'Cobrar'; bb.classList.add('claim'); bb.addEventListener('click', () => { const t = trainState(); ensureDaily(t); const mm = t.daily.missions[idx]; if (mm.c) return; mm.c = true; t.hours += d.hours; t.fragments = (t.fragments || 0) + d.frag; saveStats(t); playSfx('victory'); renderTrain(); renderStatsLine(); }); }
+    else { bb.textContent = '🔒'; bb.disabled = true; bb.classList.add('off'); }
+    c.appendChild(bb); box.appendChild(c);
+  });
+  const all = s.daily.missions.every(m => m.c);
+  const bc = document.createElement('div'); bc.className = 'tr-card' + (s.daily.bonus ? ' done' : '');
+  bc.innerHTML = `<div class="tr-ico">🎁</div><div class="tr-main"><div class="tr-name">Bonus: las 3 misiones</div><div class="tr-next">Recompensa: ⏱ 10 · 🔶 100</div></div>`;
+  const bb2 = document.createElement('button'); bb2.className = 'tr-btn';
+  if (s.daily.bonus) { bb2.textContent = 'Cobrado ✓'; bb2.disabled = true; bb2.classList.add('max'); }
+  else if (all) { bb2.textContent = 'Cobrar'; bb2.classList.add('claim'); bb2.addEventListener('click', () => { const t = trainState(); ensureDaily(t); if (t.daily.bonus) return; t.daily.bonus = true; t.hours += 10; t.fragments = (t.fragments || 0) + 100; saveStats(t); playSfx('victory'); renderTrain(); renderStatsLine(); }); }
+  else { bb2.textContent = '🔒'; bb2.disabled = true; bb2.classList.add('off'); }
+  bc.appendChild(bb2); box.appendChild(bc);
 }
 
 // ---------- PANTALLA DE TIENDA ----------
@@ -2158,9 +2259,19 @@ function renderShop() {
   });
 }
 
+
+function syncSettingsUI() { document.getElementById('setMusic').value = settings.music; document.getElementById('setSfx').value = settings.sfx; document.getElementById('setTouch').value = settings.touch; document.getElementById('setVib').checked = settings.vibrate;
+  document.getElementById('setMusicV').textContent = settings.music + '%'; document.getElementById('setSfxV').textContent = settings.sfx + '%'; document.getElementById('setTouchV').textContent = settings.touch + '%'; }
+document.getElementById('settingsBtn').addEventListener('click', () => { initAudio(); playSfx('click'); syncSettingsUI(); document.getElementById('settingsModal').classList.add('open'); });
+const closeSettings = () => { document.getElementById('settingsModal').classList.remove('open'); saveSettings(); };
+document.getElementById('setClose').addEventListener('click', closeSettings); document.getElementById('setDone').addEventListener('click', closeSettings);
+[['setMusic', 'music'], ['setSfx', 'sfx'], ['setTouch', 'touch']].forEach(([id, k]) => document.getElementById(id).addEventListener('input', e => { settings[k] = +e.target.value; applySettings(); syncSettingsUI(); if (k === 'sfx') playSfx('click'); }));
+document.getElementById('setVib').addEventListener('change', e => { settings.vibrate = e.target.checked; if (settings.vibrate) vib(60); });
+applySettings();
 document.getElementById('fsBtn').addEventListener('click', () => { goFullscreen(); });
-document.getElementById('trainBtn').addEventListener('click', () => { initAudio(); playSfx('click'); trainTab = 'train'; renderTrain(); showScreen('trainScreen'); });
+document.getElementById('trainBtn').addEventListener('click', () => { initAudio(); playSfx('click'); trainTab = dailyClaimables(trainState()) ? 'daily' : 'train'; renderTrain(); showScreen('trainScreen'); });
 document.getElementById('trainBackBtn').addEventListener('click', () => { playSfx('click'); showScreen('welcomeBack'); renderStatsLine(); });
+document.getElementById('trainTabD').addEventListener('click', () => { trainTab = 'daily'; renderTrain(); });
 document.getElementById('trainTabT').addEventListener('click', () => { trainTab = 'train'; renderTrain(); });
 document.getElementById('trainTabA').addEventListener('click', () => { trainTab = 'ach'; renderTrain(); });
 document.getElementById('shopBtn').addEventListener('click', () => {
@@ -2232,6 +2343,7 @@ function initAudio() {
     musicGain = audioCtx.createGain(); musicGain.gain.value = 0.2; musicGain.connect(masterGain);
     sfxGain = audioCtx.createGain(); sfxGain.gain.value = 0.8; sfxGain.connect(masterGain);
     if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+    applySettings();
   } catch (e) { console.warn('Audio no disponible:', e); }
 }
 
@@ -3190,7 +3302,7 @@ function shoot(shooter, angle, isBot) {
   if (weaponDef && weaponDef.engine === 'melee') {
     const meleeRange = weaponDef.meleeRange || 70;
     const arcRad = (weaponDef.meleeArc || 55) * Math.PI / 180;
-    (gameMode === 'ball' ? foesOf(shooter) : bots).forEach(b => {
+    (gameMode === 'ball' ? foesOf(shooter) : shooter === player ? bots : (gameMode === 'survival' ? [player, ...bots] : [player])).forEach(b => {
       if (!b.alive || b === shooter) return;
       if (dist(shooter, b) < meleeRange) {
         const angTo = angleTo(shooter, b);
@@ -3244,10 +3356,11 @@ function triggerFlash(color) {
   requestAnimationFrame(() => { el.style.transition = 'opacity 0.35s ease-out'; el.style.opacity = '0'; });
 }
 
+let matchSupers = 0;
 function tryActivateSuper() {
   if (player.superCharge < player.superMax || player.superActive) return;
   if (gameMode === 'ball' && (ballMatch.state !== 'play' || !player.alive)) return;
-  playSfx('super');
+  playSfx('super'); matchSupers++; vib(40);
   if (gameMode === 'tutorial') tutorialProgress.superUsed = true;
   const s = player.superDef || SUPERS[0];
   player.superActive = true;
@@ -4291,7 +4404,7 @@ function damageBot(bot, dmg) {
     }
   }
 }
-function damagePlayer(dmg) {
+function damagePlayer(dmg) { vib(25);
   if (buffs.escudo > 0) dmg = Math.round(dmg * 0.4); // orbe de escudo: 60% menos de daño
   if (player.superActive && player.superEngine === 'escudo') {
     dmg = Math.round(dmg * (1 - (player.shieldReduction || 0.7)));
@@ -4999,7 +5112,7 @@ function startMatch(savedTraits, fusion, mode) {
   player.respawnTimer = 0;
   player.superCharge = 0; player.superActive = false; player.superEngine = null; player.alive = true;
   { const Tt = (gameMode === 'tutorial') ? {} : (loadStats().train || {}); player.superMax = 5 - Math.floor((Tt.super || 0) / 3); player.regen = (Tt.regen || 0) * 0.001; }
-  kills = 0;
+  kills = 0; matchSupers = 0;
   deathsThisMatch = 0;
   projectiles.length = 0;
   matchStartTime = performance.now();
@@ -5099,6 +5212,7 @@ function endMatch(won) {
   stats.fragments += fragmentsEarned;
   const hoursEarned = Math.max(1, Math.round(1 + parseFloat(elapsed) / 45 + killsThisMatch * (gameMode === 'ball' ? 1.5 : 0.6) + (won ? 4 : 0)));
   stats.hours = (stats.hours || 0) + hoursEarned;
+  applyDailyProgress(stats, { mode: gameMode, won, kills: killsThisMatch, supers: matchSupers, deaths: deathsThisMatch, elapsed: parseFloat(elapsed) });
   saveStats(stats);
 
   document.getElementById('endTitle').textContent = won ? '¡Victoria!' : (gameMode === 'ball' ? 'Derrota' : 'Has caído');
